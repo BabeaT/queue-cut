@@ -54,7 +54,7 @@ let voiceOk = false;
 function unlockVoice() {
   if (voiceOk) return;
   voiceOk = true;
-  say("欢迎来到插队红包");
+  // 不说欢迎语：只做静音解锁，到账时才播报
 }
 let zhVoice: SpeechSynthesisVoice | null | undefined;
 function pickVoice() {
