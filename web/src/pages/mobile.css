@@ -158,3 +158,13 @@
 
 .m-foot { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 11px; padding: 10px; background: linear-gradient(transparent, var(--bg) 40%); }
 .m-foot a { color: var(--dim); }
+
+/* 可点的队伍头像 */
+button.m-person { background: transparent; padding: 0; border-radius: 12px; }
+button.m-person:active .m-person-av { transform: scale(0.9); border-color: var(--red); }
+.m-person.blocked { opacity: 0.35; }
+.m-person-rank { font-size: 10px; color: var(--dim); }
+.m-ahead { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; }
+.m-ahead-row { scroll-behavior: smooth; }
+.m-toast.receipt { border-color: var(--accent); pointer-events: auto; font-size: 12px; cursor: pointer; }
+.botmark { background: transparent; color: inherit; }

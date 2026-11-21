@@ -250,7 +250,10 @@ const botHistory: { t: number; frozen: number; profit: number }[] = [];
 const paidBy = new Map<string, bigint>(); // 插队王：花了多少
 const gotBy = new Map<string, bigint>(); // 躺赚王：被插收到多少（含冻结）
 const nickByAddr = new Map<string, string>();
-const blockAgg = new Map<number, { joins: number; txs: Set<string> }>();
+const blockAgg = new Map<number, { joins: number; cuts: number; prices: number; settles: number; txs: Set<string> }>();
+const seenTx = new Set<string>();
+let feeWei = 0n; // 我们代付的 gas 费
+let reveal = false; // 导演台「黄牛场景」开关
 let maxJoinsPerBlock = 0;
 type Spot = { uid: number; nick: string; user: string; until: number; yield: number; hold: number } | null;
 let spotlight: Spot = null;
@@ -262,15 +265,19 @@ function bump(m: Map<string, bigint>, k: string, d: bigint) {
 let blockStatsTimer: NodeJS.Timeout | null = null;
 let blockStatsDirty = new Set<number>();
 function noteBlock(l: any, isJoin: boolean) {
+  seenTx.add(l.transactionHash);
   const b = Number(l.blockNumber);
   if (!b) return;
   let a = blockAgg.get(b);
   if (!a) {
-    a = { joins: 0, txs: new Set() };
+    a = { joins: 0, cuts: 0, prices: 0, settles: 0, txs: new Set() };
     blockAgg.set(b, a);
     if (blockAgg.size > 200) blockAgg.delete(blockAgg.keys().next().value!);
   }
   if (isJoin) a.joins++;
+  if (l.eventName === "Cut") a.cuts++;
+  if (l.eventName === "PriceScheduled") a.prices++;
+  if (l.eventName === "Settled") a.settles++;
   a.txs.add(l.transactionHash);
   if (a.joins > maxJoinsPerBlock) maxJoinsPerBlock = a.joins;
   blockStatsDirty.add(b);
@@ -279,7 +286,7 @@ function noteBlock(l: any, isJoin: boolean) {
       blockStatsTimer = null;
       for (const bn of blockStatsDirty) {
         const x = blockAgg.get(bn);
-        if (x) broadcast({ type: "blockStats", block: bn, joins: x.joins, txs: x.txs.size, maxJoins: maxJoinsPerBlock });
+        if (x) broadcast({ type: "blockStats", block: bn, joins: x.joins, cuts: x.cuts, prices: x.prices, settles: x.settles, txs: x.txs.size, maxJoins: maxJoinsPerBlock });
       }
       blockStatsDirty = new Set();
     }, 80);
@@ -319,6 +326,21 @@ function applyLog(l: any, live: boolean) {
         broadcast({ type: "joined", uid: Number(a.uid), nick, user: a.user, block: Number(l.blockNumber) });
         noteBlock(l, true);
       }
+      break;
+    }
+    case "PriceScheduled": {
+      const u = users.get(Number(a.uid));
+      if (live)
+        broadcast({
+          type: "price",
+          uid: Number(a.uid),
+          nick: nickOf(Number(a.uid)),
+          user: u?.user,
+          price: num(a.price),
+          noYield: a.noYield,
+          block: Number(l.blockNumber),
+          txHash: l.transactionHash,
+        });
       break;
     }
     case "Granted":
@@ -518,6 +540,7 @@ function buildState() {
     leaders: leadersView(),
     prices: pricesView(queue),
     spotlight,
+    reveal,
     maxJoinsPerBlock,
   };
 }
@@ -561,6 +584,8 @@ function statsView() {
     avgChainMs: l.length ? Math.round(l.reduce((a, b) => a + b, 0) / l.length) : null,
     lastCut: stats.lastCut,
     queueLength: snapshotRows.length,
+    txs: seenTx.size,
+    feeMon: Math.round(num(feeWei) * 1000) / 1000,
   };
 }
 
@@ -767,6 +792,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
         const sent = await relayer.submitSync(FWD, data, outerGas, (h) =>
           relayT0.set(h, { t0, gasLimit: Number(outerGas) }),
         );
+        feeWei += outerGas * (baseFee + PRIORITY);
         const ok = sent.receipt.status === "0x1" || sent.receipt.status === "success";
         if (!ok) log("relay tx reverted", sent.hash);
         // 回执里就有事件，直接推给全场（不等轮询）
@@ -804,6 +830,38 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
     log("api error", url.pathname, errMsg(e));
     return send(res, 500, { error: errMsg(e) });
   }
+}
+
+const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
+const NICK_A = ["🐼", "🦊", "🐯", "🐸", "🐙", "🦄", "🐳", "🐧", "🦁", "🐨", "🐹", "🐰", "🐻", "🐮", "🐷", "🐵", "🦉", "🍋", "🧋", "🥟"];
+const NICK_B = ["阿明", "小红", "大雄", "阿珍", "靓仔", "靓女", "肥仔", "叉烧", "虾饺", "肠粉", "阿强", "小美", "老陈", "阿芳", "细佬", "家姐", "阿杰", "婷婷"];
+const randomNick = () => pick(NICK_A) + pick(NICK_B);
+function nickHex(nick: string): Hex {
+  const nb = new Uint8Array(16);
+  const enc = new TextEncoder();
+  let out = "";
+  for (const ch of nick) {
+    if (enc.encode(out + ch).length > 16) break;
+    out += ch;
+  }
+  nb.set(enc.encode(out));
+  return ("0x" + Buffer.from(nb).toString("hex")) as Hex;
+}
+function isActive(addr: string) {
+  const a = addr.toLowerCase();
+  for (const u of users.values()) if (u.user.toLowerCase() === a && (u.status === "queued" || u.status === "called")) return true;
+  return false;
+}
+async function ensureBotsGranted() {
+  const need = bots.map((b) => b.account.address).filter((a) => (balances.get(a.toLowerCase()) ?? 0n) < parseEther("200"));
+  if (!need.length) return;
+  for (const a of need) addBalOptimistic(a);
+  await ownerCall("grantBatch", [need, parseEther("1000")], 80_000n + 45_000n * BigInt(need.length));
+  await new Promise((r) => setTimeout(r, 1500));
+}
+const optimistic = new Set<string>();
+function addBalOptimistic(a: string) {
+  optimistic.add(a.toLowerCase());
 }
 
 async function stageAction(action: string, body: any) {
@@ -863,29 +921,66 @@ async function stageAction(action: string, body: any) {
       return { hash: await ownerCall("close", [40], 25_000_000n) };
     case "newSession":
       return { hash: await ownerCall("newSession", [], 2_000_000n) };
-    case "botsJoin": {
-      // 黄牛 20 个号，各自用自己的地址发交易（自付 gas）
-      const price = body.price ? parseEther(String(body.price)) : BOT_PRICE;
+    case "botsJoin":
+    case "addPeople": {
+      // 演示账号（最多 20 个）各自用自己的地址上链入队，自付 gas
+      await ensureBotsGranted();
+      const idle = bots.filter((b) => !isActive(b.account.address));
+      const n = Math.min(Number(body.n ?? 20), idle.length);
       const out: { bot: string; hash?: string; error?: string }[] = [];
       await Promise.all(
-        bots.map(async (b, i) => {
-          const nick = `黄牛${String(i + 1).padStart(2, "0")}`;
-          const nb = new Uint8Array(16);
-          nb.set(new TextEncoder().encode(nick).slice(0, 16));
-          const data = encodeFunctionData({
-            abi: queueCutAbi,
-            functionName: "join",
-            args: [price, false, ("0x" + Buffer.from(nb).toString("hex")) as Hex],
-          });
+        idle.slice(0, n).map(async (b) => {
+          const price = body.price ? parseEther(String(body.price)) : parseEther(pick(["0.2", "0.5", "0.5", "0.5", "1", "1"]));
+          const data = encodeFunctionData({ abi: queueCutAbi, functionName: "join", args: [price, false, nickHex(randomNick())] });
           try {
-            out.push({ bot: b.account.address, hash: await b.submit(QC, data, 300_000n) });
+            out.push({ bot: b.account.address, hash: await b.submit(QC, data, 330_000n) });
           } catch (e) {
             out.push({ bot: b.account.address, error: errMsg(e) });
           }
         }),
       );
-      return { results: out };
+      return { joined: out.filter((o) => o.hash).length, idleLeft: idle.length - n, errors: out.filter((o) => o.error).slice(0, 3) };
     }
+    case "botCut": {
+      // 让队尾的演示账号插队（真人就能体验被插队）：插到第 toRank 位
+      await ensureBotsGranted();
+      const q = snapshotRows;
+      if (q.length < 2) return { note: "队里人太少" };
+      let idx = q.length - 1;
+      let bot = bots.find((b) => b.account.address.toLowerCase() === String(q[idx].user).toLowerCase());
+      if (!bot) {
+        // 队尾是真人：先让一个空闲的演示账号排到队尾
+        const idle = bots.find((b) => !isActive(b.account.address));
+        if (!idle) return { note: "没有空闲的演示账号了（先清空队伍）" };
+        const data = encodeFunctionData({ abi: queueCutAbi, functionName: "join", args: [parseEther("0.5"), false, nickHex(randomNick())] });
+        await idle.submit(QC, data, 330_000n);
+        bot = idle;
+        idx = q.length; // 入队后在最后
+      }
+      const toRank = Math.max(1, Math.min(Number(body.toRank ?? 1), idx));
+      const toPos = Number(q[toRank - 1].pos);
+      const span = idx - (toRank - 1);
+      const data = encodeFunctionData({ abi: queueCutAbi, functionName: "cut", args: [toPos, parseEther("100000")] });
+      const hash = await bot.submit(QC, data, 250_000n + 50_000n * BigInt(span));
+      relayT0.set(hash, { t0: Date.now(), gasLimit: Number(250_000n + 50_000n * BigInt(span)) });
+      return { hash, toRank, over: span };
+    }
+    case "botsReprice": {
+      // 全场改价：所有在队里的演示账号同时各发一笔改价交易（真上链，各写各的存储）
+      const prices = ["0.2", "0.3", "0.5", "0.8", "1", "1.5", "2", "3"];
+      const inQ = bots.filter((b) => snapshotRows.some((r: any) => String(r.user).toLowerCase() === b.account.address.toLowerCase()));
+      const hashes = await Promise.all(
+        inQ.map((b) => {
+          const data = encodeFunctionData({ abi: queueCutAbi, functionName: "setPrice", args: [parseEther(pick(prices)), false] });
+          return b.submit(QC, data, 130_000n).catch((e) => "ERR " + errMsg(e));
+        }),
+      );
+      return { sent: hashes.filter((h) => !String(h).startsWith("ERR")).length, errors: hashes.filter((h) => String(h).startsWith("ERR")).slice(0, 2) };
+    }
+    case "reveal":
+      reveal = body.on ?? !reveal;
+      broadcast({ type: "reveal", on: reveal });
+      return { reveal };
     case "botsLeave": {
       const out: string[] = [];
       for (const b of bots) {

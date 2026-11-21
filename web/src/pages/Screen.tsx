@@ -30,7 +30,11 @@ function splitNick(nick: string, uid: number) {
 
 // ───────────── 临时特效 ─────────────
 type Fx = { id: number; uid: number; kind: "packet" | "paid" | "refund" | "served"; text: string };
-type Fly = { id: number; x: number; y: number; dx: number; dy: number; text: string };
+type Fly = { id: number; x: number; y: number; dx: number; dy: number; text: string; delay?: number; coin?: boolean };
+type PriceEv = { uid: number; nick: string; price: number; noYield: boolean; block: number };
+type Storm = { id: number; items: PriceEv[] };
+type Trace = { id: number; cut: CutEvent; at: number };
+type BlockAgg = { joins: number; cuts: number; prices: number; settles: number; txs: number };
 type Ghost = { id: number; x: number; y: number; w: number; h: number; avatar: string; name: string; isBot: boolean };
 type Beam = { id: number; x: number; y: number; len: number; angle: number };
 type Banner = { id: number; cut: CutEvent; rank: number };
@@ -40,8 +44,8 @@ const nextId = () => ++fxSeq;
 
 export default function Screen() {
   const { state, connected } = useLive();
-  const block = useBlock();
   const queue = state?.queue ?? [];
+  const reveal = !!state?.reveal;
 
   const [fx, setFx] = useState<Fx[]>([]);
   const [flies, setFlies] = useState<Fly[]>([]);
@@ -49,8 +53,10 @@ export default function Screen() {
   const [beams, setBeams] = useState<Beam[]>([]);
   const [banner, setBanner] = useState<Banner | null>(null);
   const [shake, setShake] = useState(false);
-  const [blockFlash, setBlockFlash] = useState<{ id: number; block: number; joins: number; txs: number } | null>(null);
-  const [maxJoins, setMaxJoins] = useState(0);
+  const [trace, setTrace] = useState<Trace | null>(null);
+  const [storm, setStorm] = useState<Storm | null>(null);
+  const priceBuf = useRef<(PriceEv & { t: number })[]>([]);
+  const stormOpen = useRef(false);
   const [joinTicker, setJoinTicker] = useState<{ id: number; text: string }[]>([]);
   const [counterFx, setCounterFx] = useState<{ id: number; text: string }[]>([]);
 
@@ -96,17 +102,44 @@ export default function Screen() {
           e.victims.map((v) => ({ uid: v.uid, kind: "packet" as const, text: `+${fmt(v.amount)}` })),
           4200,
         );
+        // 钱的流向：金币从插队者飞向每个被越过的人（错峰，最多 40 枚）
+        if (from) {
+          const coins: Fly[] = [];
+          e.victims.slice(0, 40).forEach((v, i) => {
+            const r = rectOf(v.uid);
+            if (!r) return;
+            const x = from.left + from.width / 2;
+            const y = from.top + from.height / 2;
+            coins.push({
+              id: nextId(),
+              x,
+              y,
+              dx: r.left + r.width / 2 - x,
+              dy: r.top + r.height / 2 - y,
+              text: "🪙",
+              delay: 150 + i * 35,
+              coin: true,
+            });
+          });
+          if (coins.length) {
+            const ids = new Set(coins.map((c) => c.id));
+            setFlies((f) => [...f.slice(-40), ...coins]);
+            later(3200, () => setFlies((f) => f.filter((x) => !ids.has(x.id))));
+          }
+        }
         const targetRank = firstVictim !== undefined ? (queue.find((q) => q.uid === firstVictim)?.rank ?? 1) : 1;
         const id = nextId();
         setBanner({ id, cut: e, rank: targetRank });
         later(5200, () => setBanner((b) => (b?.id === id ? null : b)));
+        setTrace({ id, cut: e, at: Date.now() });
+        later(14500, () => setTrace((t) => (t?.id === id ? null : t)));
         setShake(true);
         later(600, () => setShake(false));
         break;
       }
       case "settled": {
         if (e.toVictim) {
-          addFx([{ uid: e.victim.uid, kind: "paid", text: `✅ 到账 +${fmt(e.amount)}` }], 3000);
+          addFx([{ uid: e.victim.uid, kind: "paid", text: `🔓 到账 +${fmt(e.amount)}` }], 3000);
         } else {
           addFx([{ uid: e.victim.uid, kind: "refund", text: `↩ 退回 ${fmt(e.amount)}` }], 2600);
           const a = rectOf(e.victim.uid);
@@ -121,9 +154,9 @@ export default function Screen() {
                 y: a.top + 10,
                 dx: b.left + b.width / 2 - (a.left + a.width / 2),
                 dy: b.top + 10 - (a.top + 10),
-                text: `🧧${fmt(e.amount)}`,
+                text: `🪙${fmt(e.amount)}`,
               },
-            ]);
+            ].slice(-40));
             later(1500, () => setFlies((f) => f.filter((x) => x.id !== id)));
           }
         }
@@ -161,11 +194,23 @@ export default function Screen() {
         later(3500, () => setJoinTicker((t) => t.filter((x) => x.id !== id)));
         break;
       }
-      case "blockStats": {
-        const id = nextId();
-        setBlockFlash({ id, block: e.block, joins: e.joins, txs: e.txs });
-        setMaxJoins((m) => Math.max(m, e.joins));
-        later(2500, () => setBlockFlash((b) => (b?.id === id ? null : b)));
+      case "price": {
+        // 并发泳道：1.5 秒内 ≥5 笔改价 → 弹出「全场改价」面板
+        const now = Date.now();
+        const item = { uid: e.uid, nick: e.nick, price: e.price, noYield: e.noYield, block: e.block };
+        priceBuf.current = [...priceBuf.current.filter((x) => now - x.t < 1500), { ...item, t: now }];
+        if (stormOpen.current) {
+          setStorm((st) => (st && st.items.length < 30 ? { ...st, items: [...st.items, item] } : st));
+        } else if (priceBuf.current.length >= 5) {
+          stormOpen.current = true;
+          const id = nextId();
+          setStorm({ id, items: priceBuf.current.map(({ t: _t, ...x }) => x) });
+          later(6500, () => {
+            stormOpen.current = false;
+            priceBuf.current = [];
+            setStorm((st) => (st?.id === id ? null : st));
+          });
+        }
         break;
       }
     }
@@ -229,26 +274,10 @@ export default function Screen() {
             </div>
           ))}
         </div>
-        <div className="sc-blockbox">
-          <div className="sc-block-row">
-            {!connected && <span className="sc-recon">● 重连中</span>}
-            <span className="sc-block-label">块</span>
-            <span key={block} className="sc-block mono">
-              #{block || state?.block || "…"}
-            </span>
-          </div>
-          <div className="sc-block-sub">Monad 测试网 · 0.3s 出块 · 0.6s 终局</div>
-          <div className="sc-block-stats">
-            {blockFlash ? (
-              <span key={blockFlash.id} className="sc-bflash">
-                块 #{blockFlash.block}：{blockFlash.joins} 人入队 / {blockFlash.txs} 笔交易
-              </span>
-            ) : maxJoins > 0 ? (
-              <span className="dim">最高同块入队 {maxJoins} 人</span>
-            ) : null}
-          </div>
-        </div>
+        <BlockBox connected={connected} fallback={state?.block ?? 0} initMax={state?.maxJoinsPerBlock ?? 0} />
       </header>
+
+      <BlockBelt fallback={state?.block ?? 0} />
 
       <main className="sc-main">
         <section className={`sc-stage ${dense ? "dense" : ""}`}>
@@ -282,6 +311,7 @@ export default function Screen() {
                   row={row}
                   fx={fxByUid.get(row.uid)}
                   spot={spotlight?.uid === row.uid}
+                  reveal={reveal}
                   refCb={(el) => {
                     if (el) cardEls.current.set(row.uid, el);
                     else cardEls.current.delete(row.uid);
@@ -314,20 +344,32 @@ export default function Screen() {
         {flies.map((f) => (
           <div
             key={f.id}
-            className="sc-fly"
-            style={{ left: f.x, top: f.y, ["--dx" as any]: `${f.dx}px`, ["--dy" as any]: `${f.dy}px` }}
+            className={`sc-fly ${f.coin ? "coin" : ""}`}
+            style={{
+              left: f.x,
+              top: f.y,
+              animationDelay: f.delay ? `${f.delay}ms` : undefined,
+              ["--dx" as any]: `${f.dx}px`,
+              ["--dy" as any]: `${f.dy}px`,
+            }}
           >
             {f.text}
           </div>
         ))}
         {ghosts.map((g) => (
-          <div key={g.id} className={`sc-ghost ${g.isBot ? "bot" : ""}`} style={{ left: g.x, top: g.y, width: g.w, height: g.h }}>
+          <div key={g.id} className={`sc-ghost ${g.isBot && reveal ? "bot" : ""}`} style={{ left: g.x, top: g.y, width: g.w, height: g.h }}>
             <div className="sc-ghost-av">{g.avatar}</div>
             <div className="sc-ghost-name">{g.name}</div>
             <div className="sc-ghost-tag">过号</div>
           </div>
         ))}
-        {banner && <CutBanner key={banner.id} banner={banner} />}
+        {(banner || trace) && (
+          <div className="sc-cutstack">
+            {banner && <CutBanner key={banner.id} banner={banner} />}
+            {trace && <CutTrace key={trace.id} trace={trace} lastCut={state?.stats?.lastCut ?? null} solo={!banner} />}
+          </div>
+        )}
+        {storm && <StormPanel key={storm.id} storm={storm} />}
         {spotlight && <SpotlightPanel spotlight={spotlight} />}
       </div>
     </div>
@@ -335,13 +377,26 @@ export default function Screen() {
 }
 
 // ───────────── 队伍里的一个人 ─────────────
-function Card(props: { row: QueueRow; fx?: Fx[]; spot: boolean; refCb: (el: HTMLDivElement | null) => void }) {
+function Card(props: {
+  row: QueueRow;
+  fx?: Fx[];
+  spot: boolean;
+  reveal: boolean;
+  refCb: (el: HTMLDivElement | null) => void;
+}) {
   const { row } = props;
-  const { avatar, name } = splitNick(row.nick, row.uid);
+  const base = splitNick(row.nick, row.uid);
+  const scalper = row.isBot && props.reveal; // 只有导演台打开「黄牛场景」才标出来
+  const avatar = scalper ? "🕶️" : base.avatar;
+  const name = base.name;
   const pending = row.pendingFrom > 0;
+  const paid = props.fx?.some((f) => f.kind === "paid");
   return (
     <div className="sc-slot" ref={props.refCb}>
-      <div className={`sc-card ${row.isBot ? "bot" : ""} ${row.noYield ? "wall" : ""} ${props.spot ? "spot" : ""}`}>
+      <div
+        className={`sc-card ${scalper ? "bot" : ""} ${row.noYield ? "wall" : ""} ${props.spot ? "spot" : ""} ${paid ? "paidflash" : ""}`}
+        style={scalper ? { animationDelay: `${(row.rank % 24) * 45}ms` } : undefined}
+      >
         <div className="sc-rank mono">{row.rank}</div>
         <div className={`sc-tag ${row.noYield ? "wall" : ""}`}>
           {row.noYield ? (
@@ -355,9 +410,19 @@ function Card(props: { row: QueueRow; fx?: Fx[]; spot: boolean; refCb: (el: HTML
             </>
           )}
         </div>
-        <div className="sc-av">{avatar}</div>
+        <div className="sc-av" key={scalper ? "s" : "n"}>
+          {avatar}
+        </div>
         <div className="sc-name">{name}</div>
-        {row.isBot && <div className="sc-bot-tag">黄牛</div>}
+        {scalper ? (
+          <div className="sc-bot-tag">黄牛</div>
+        ) : (
+          row.isBot && (
+            <div className="sc-demo-tag" title="演示账号">
+              🤖
+            </div>
+          )
+        )}
         {row.frozenIn > 0 && <div className="sc-frozen">🔒 {fmt(row.frozenIn)}</div>}
         {props.fx?.map((f) =>
           f.kind === "packet" ? (
@@ -458,10 +523,11 @@ function SpotlightPanel({ spotlight }: { spotlight: NonNullable<Spotlight> }) {
 }
 
 // ───────────── 右栏 ─────────────
+const QR_BASE = ((import.meta.env.VITE_QR_BASE as string | undefined) || location.origin).replace(/\/$/, "");
 function QrCard() {
   const [src, setSrc] = useState("");
   useEffect(() => {
-    QRCode.toDataURL(location.origin + "/m", {
+    QRCode.toDataURL(QR_BASE + "/m", {
       margin: 1,
       width: 320,
       color: { dark: "#0b0714", light: "#ffffff" },
@@ -475,7 +541,7 @@ function QrCard() {
       <div className="sc-qr-text">
         <div className="sc-qr-big">扫码排队</div>
         <div className="dim">有人插你就有钱收</div>
-        <div className="sc-qr-url mono">{location.host}/m</div>
+        <div className="sc-qr-url mono">{QR_BASE.replace(/^https?:\/\//, "")}/m</div>
       </div>
     </div>
   );
@@ -498,11 +564,13 @@ function BotPanel({ state }: { state: LiveState | null }) {
   return (
     <div className="sc-panel sc-bots">
       <div className="sc-panel-title">
-        🕴 黄牛 {state?.bots?.count ?? 20} 个号
+        {state?.reveal
+          ? `🕶️ 黄牛场景：${state?.bots?.count ?? 20} 个只排不买的号`
+          : `🤖 演示账号 ${state?.bots?.count ?? 20} 个 · 只排不买`}
       </div>
       <div className="sc-bots-big">
         实际到手 <b className="gold mono">{fmt(last?.profit ?? 0)}</b>
-        <span className="sc-bots-idle">黄牛白忙中</span>
+        <span className="sc-bots-idle">{state?.reveal ? "黄牛白忙中" : "不消费，红包就不解锁"}</span>
       </div>
       <svg className="sc-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
         <line x1="0" y1={H - 3} x2={W} y2={H - 3} className="axis" />
@@ -586,6 +654,8 @@ function Metrics({ state }: { state: LiveState | null }) {
       <Metric label="发出红包" value={s?.packets ?? 0} />
       <Metric label="已到账" value={s?.toVictim ?? 0} unit="笔" />
       <Metric label="原路退回" value={s?.refunded ?? 0} unit="笔" />
+      <Metric label="本场链上交易" value={s?.txs ?? "—"} unit="笔" />
+      <Metric label="全场 gas 费（我们代付）" value={s?.feeMon !== undefined ? fmt(s.feeMon, 3) : "—"} unit="MON" />
       <div className="sc-metric wide">
         <div className="sc-m-label">最近一次插队</div>
         {lc ? (
@@ -613,13 +683,202 @@ function Metrics({ state }: { state: LiveState | null }) {
   );
 }
 
-function Metric(props: { label: string; value: number; unit?: string }) {
+function Metric(props: { label: string; value: number | string; unit?: string }) {
   return (
     <div className="sc-metric">
       <div className="sc-m-label">{props.label}</div>
       <div key={props.value} className="sc-m-value mono">
         {props.value}
         {props.unit && <small>{props.unit}</small>}
+      </div>
+    </div>
+  );
+}
+
+// ───────────── 顶栏块号（单独组件：每 0.3 秒只重渲染这一小块） ─────────────
+function BlockBox(props: { connected: boolean; fallback: number; initMax: number }) {
+  const block = useBlock();
+  const [flash, setFlash] = useState<{ id: number; block: number; joins: number; txs: number } | null>(null);
+  const [maxJoins, setMaxJoins] = useState(0);
+  useLiveEvents((e) => {
+    if (e.type !== "blockStats") return;
+    const id = nextId();
+    setFlash({ id, block: e.block, joins: e.joins ?? 0, txs: e.txs ?? 0 });
+    setMaxJoins((m) => Math.max(m, e.joins ?? 0, e.maxJoins ?? 0));
+    setTimeout(() => setFlash((b) => (b?.id === id ? null : b)), 2500);
+  });
+  const max = Math.max(maxJoins, props.initMax);
+  return (
+    <div className="sc-blockbox">
+      <div className="sc-block-row">
+        {!props.connected && <span className="sc-recon">● 重连中</span>}
+        <span className="sc-block-label">块</span>
+        <span key={block} className="sc-block mono">
+          #{block || props.fallback || "…"}
+        </span>
+      </div>
+      <div className="sc-block-sub">Monad 测试网 · 0.3s 出块 · 0.6s 终局</div>
+      <div className="sc-block-stats">
+        {flash ? (
+          <span key={flash.id} className="sc-bflash">
+            块 #{flash.block}：{flash.joins} 人入队 / {flash.txs} 笔交易
+          </span>
+        ) : max > 0 ? (
+          <span className="dim">最高同块入队 {max} 人</span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ───────────── A 区块传送带 ─────────────
+const BELT_MAX = 40;
+function BlockBelt({ fallback }: { fallback: number }) {
+  const live = useBlock();
+  const block = live || fallback;
+  const [blocks, setBlocks] = useState<number[]>([]);
+  const [agg, setAgg] = useState<Map<number, BlockAgg>>(new Map());
+  useEffect(() => {
+    if (!block) return;
+    setBlocks((bs) => {
+      const last = bs[bs.length - 1] ?? block - 1;
+      if (block <= last) return bs;
+      const add: number[] = [];
+      for (let n = Math.max(last + 1, block - 5); n <= block; n++) add.push(n);
+      return [...bs, ...add].slice(-BELT_MAX);
+    });
+  }, [block]);
+  useLiveEvents((e) => {
+    if (e.type !== "blockStats") return;
+    setAgg((m) => {
+      const next = new Map(m);
+      next.set(e.block, {
+        joins: e.joins ?? 0,
+        cuts: e.cuts ?? 0,
+        prices: e.prices ?? 0,
+        settles: e.settles ?? 0,
+        txs: e.txs ?? 0,
+      });
+      if (next.size > 120) next.delete(next.keys().next().value as number);
+      return next;
+    });
+  });
+  return (
+    <div className="sc-belt">
+      <div className="sc-belt-legend">
+        <b>⛓ 区块传送带</b>
+        <span className="sc-belt-chip prop" /> 已提议
+        <span className="sc-belt-chip fin" /> 已终局
+        <span className="dim">0.3s 出块 → 0.6s 终局</span>
+      </div>
+      <div className="sc-belt-track">
+        {blocks.map((n) => {
+          const a = agg.get(n);
+          const fin = block - n >= 2;
+          return (
+            <div key={n} className={`sc-blk ${fin ? "fin" : "prop"} ${a ? "lit" : ""}`}>
+              <span className="sc-blk-n mono">{String(n % 1000).padStart(3, "0")}</span>
+              {a && (
+                <span className="sc-blk-ev">
+                  {a.joins > 0 && <i>🎟️×{a.joins}</i>}
+                  {a.cuts > 0 && <i>⚡×{a.cuts}</i>}
+                  {a.prices > 0 && <i>🏷️×{a.prices}</i>}
+                  {a.settles > 0 && <i>💰×{a.settles}</i>}
+                  {a.joins + a.cuts + a.prices + a.settles === 0 && a.txs > 0 && <i>📦×{a.txs}</i>}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ───────────── B 一笔插队的时间线 + C 以太坊对照条 ─────────────
+const ETH_BLOCK_S = 12;
+function CutTrace(props: { trace: Trace; lastCut: LiveState["stats"]["lastCut"]; solo: boolean }) {
+  const c = props.trace.cut;
+  const lc = props.lastCut && props.lastCut.cutId === c.cutId ? props.lastCut : null;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, []);
+  const left = Math.max(0, ETH_BLOCK_S - (now - props.trace.at) / 1000);
+  const chain = c.chainMs ?? lc?.chainMs ?? null;
+  const steps: { label: string; value: string }[] = [
+    { label: "点击", value: "0ms" },
+    { label: "中继签名发出", value: "代付 gas" },
+    { label: `进入区块 #${c.block}`, value: chain !== null ? `${chain}ms` : "—" },
+    { label: "终局", value: "+600ms（2 个块）" },
+    {
+      label: "全场手机到账",
+      value: lc?.fanoutMs != null ? `${lc.fanoutMs}ms（${lc.acks} 台）` : "—",
+    },
+  ];
+  return (
+    <div className={`sc-trace ${props.solo ? "solo" : ""}`}>
+      <div className="sc-trace-steps">
+        {steps.map((st, i) => (
+          <div key={i} className="sc-step" style={{ animationDelay: `${300 + i * 380}ms` }}>
+            <div className="sc-step-dot">{i + 1}</div>
+            <div className="sc-step-label">{st.label}</div>
+            <div className="sc-step-val mono">{st.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className={`sc-eth ${left <= 0 ? "done" : ""}`}>
+        <div className="sc-eth-text">
+          {left > 0 ? (
+            <>
+              同一笔交易在以太坊（12 秒一个块）：还要等 <b className="mono">{left.toFixed(1)}</b> 秒…
+            </>
+          ) : (
+            <>以太坊：现在才进块</>
+          )}
+        </div>
+        <div className="sc-eth-bar">
+          <div className="sc-eth-fill" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ───────────── E 并发泳道：全场改价 ─────────────
+function StormPanel({ storm }: { storm: Storm }) {
+  const blocks = new Set(storm.items.map((x) => x.block)).size;
+  return (
+    <div className="sc-storm">
+      <div className="sc-storm-title">
+        🏷️ 全场改价：同一时刻 <b>{storm.items.length}</b> 笔改价 · 分布在 <b>{blocks}</b> 个块 ·
+        各写各的数据，可并行执行
+      </div>
+      <div className="sc-lanes">
+        {storm.items.map((x, i) => {
+          const { avatar, name } = splitNick(x.nick, x.uid);
+          return (
+            <div key={`${x.uid}-${i}`} className="sc-lane">
+              <span className="sc-lane-who">
+                {avatar} {name}
+              </span>
+              <span className="sc-lane-bar">
+                <span className="sc-lane-fill" />
+              </span>
+              <span className="sc-lane-val mono">{x.noYield ? "🧱" : fmt(x.price, 1)}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="sc-serial">
+        <span className="sc-lane-who">⚡ 插队</span>
+        <span className="sc-serial-bar">
+          {Array.from({ length: 8 }, (_, i) => (
+            <span key={i} className="sc-serial-seg" style={{ animationDelay: `${i * 260}ms` }} />
+          ))}
+        </span>
+        <span className="sc-serial-note">改动整条队伍，串行执行</span>
       </div>
     </div>
   );

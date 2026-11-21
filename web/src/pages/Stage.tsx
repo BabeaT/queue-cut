@@ -12,6 +12,8 @@ export default function Stage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [mon, setMon] = useState<{ address: string; mon: number }[] | null>(null);
   const [secs, setSecs] = useState(20);
+  const [addN, setAddN] = useState(10);
+  const [cutRank, setCutRank] = useState(1);
   const key = stageKey();
 
   const act = async (label: string, action: string, body: unknown = {}) => {
@@ -45,7 +47,7 @@ export default function Stage() {
         <b>🧑‍🍳 店员台 · 🎬 导演台</b>
         <span className={connected ? "ok" : "bad"}>{connected ? "● 已连接" : "● 断线"}</span>
         <span className="mono">块 #{block || state?.block}</span>
-        <span>队伍 {q.length} 人 · 黄牛在队首 {headBots} 个</span>
+        <span>队伍 {q.length} 人 · 其中演示账号 {q.filter((r) => r.isBot).length} 个</span>
         <a href={`${EXPLORER}/address/${state?.contract}`} target="_blank" rel="noreferrer" className="mono">
           合约 {state?.contract?.slice(0, 10)}…
         </a>
@@ -81,15 +83,40 @@ export default function Stage() {
         </section>
 
         <section className="st-card">
-          <h3>🎬 三幕</h3>
-          <div className="st-btns col">
-            <button disabled={!!busy} onClick={() => act("放出黄牛 20 个号", "botsJoin")}>
-              🕶️ 开场前：放出黄牛（20 个号各自上链入队）
+          <h3>🤖 演示账号（20 个真实链上地址，各自发交易）</h3>
+          <div className="st-inline">
+            <span>添加</span>
+            <input type="number" value={addN} min={1} max={20} onChange={(e) => setAddN(Number(e.target.value))} />
+            <span>人排队</span>
+            <button className="primary" disabled={!!busy} onClick={() => act(`添加 ${addN} 人排队`, "addPeople", { n: addN })}>
+              ➕ 添加
             </button>
+          </div>
+          <div className="st-inline">
+            <span>让队尾的演示账号插队到第</span>
+            <input type="number" value={cutRank} min={1} max={Math.max(1, q.length)} onChange={(e) => setCutRank(Number(e.target.value))} />
+            <span>位</span>
+            <button className="primary" disabled={!!busy || q.length < 2} onClick={() => act(`演示账号插到第 ${cutRank} 位`, "botCut", { toRank: cutRank })}>
+              ⚡ 插队（体验被插）
+            </button>
+          </div>
+          <div className="st-btns col">
+            <button disabled={!!busy} onClick={() => act("全场改价", "botsReprice")}>
+              🏷️ 全场改价（演示账号同时各发一笔改价交易，看并发）
+            </button>
+            <button className="danger" disabled={!!busy} onClick={() => confirm("清空队伍：所有人算没消费，钱全部原路退回，开新一场。确定？") && act("清空队伍", "reset")}>
+              🧹 一键清空队伍
+            </button>
+          </div>
+        </section>
+
+        <section className="st-card">
+          <h3>🎬 演示</h3>
+          <div className="st-btns col">
             <div className="st-inline">
-              <span>第二幕 聚光灯</span>
+              <span>评委守位 聚光灯</span>
               <input type="number" value={secs} min={5} max={60} onChange={(e) => setSecs(Number(e.target.value))} />
-              <span>秒 · 在下面队伍里点「🔦」选人</span>
+              <span>秒 · 在队伍里点「🔦」选人</span>
               <button disabled={!!busy || !state?.spotlight} onClick={() => act("关聚光灯", "spotlightOff")}>
                 关
               </button>
@@ -99,10 +126,13 @@ export default function Stage() {
                 🔦 {nameOf(state.spotlight.nick)} · 喊让 {state.spotlight.yield} / 喊不让 {state.spotlight.hold}
               </div>
             )}
-            <button className="danger" disabled={!!busy || headBots === 0} onClick={() => act(`黄牛专场：${headBots} 个一次过号`, "act3")}>
-              🕶️ 第三幕：队首 {headBots} 个黄牛一次过号（同一笔交易）
+            <button disabled={!!busy} onClick={() => act(state?.reveal ? "关闭黄牛场景" : "打开黄牛场景", "reveal", { on: !state?.reveal })}>
+              🕶️ 黄牛场景：{state?.reveal ? "已打开（点击关闭）" : "打开（把只排不买的演示账号标成黄牛）"}
             </button>
-            {headBots === 0 && q.length > 0 && <div className="dim small">队首是真人：先「叫号 + 核销队首」，黄牛到了队首再按</div>}
+            <button className="danger" disabled={!!busy || headBots === 0} onClick={() => act(`队首 ${headBots} 个一次过号`, "act3")}>
+              📣 叫号没人来：队首 {headBots} 个演示账号一次过号（同一笔交易）
+            </button>
+            {headBots === 0 && q.length > 0 && <div className="dim small">队首是真人：先「叫号 + 核销队首」</div>}
           </div>
         </section>
 
@@ -112,8 +142,8 @@ export default function Stage() {
             {q.map((r) => (
               <div key={r.uid} className={`st-q ${r.isBot ? "bot" : ""}`}>
                 <span className="st-rank">{r.rank}</span>
-                <span>{avatarOf(r.nick, r.uid, r.isBot)}</span>
-                <span className="grow">{nameOf(r.nick)}</span>
+                <span>{avatarOf(r.nick, r.uid)}</span>
+                <span className="grow">{nameOf(r.nick)}{r.isBot ? " 🤖" : ""}</span>
                 <span className="mono">{r.noYield ? "🧱" : fmt(r.price)}</span>
                 <span className="mono gold">🔒{fmt(r.frozenIn)}</span>
                 <button disabled={!!busy} onClick={() => act(`聚光灯 ${r.nick}`, "spotlight", { uid: r.uid, seconds: secs })}>
@@ -135,16 +165,13 @@ export default function Stage() {
               <div className="st-mon mono">
                 {mon.map((m, i) => (
                   <div key={m.address} className={m.mon < 0.05 ? "low" : ""}>
-                    {i === 0 ? "运营" : i <= 3 ? `中继${i}` : `黄牛${String(i - 3).padStart(2, "0")}`} {m.address.slice(0, 8)} {fmt(m.mon, 3)}
+                    {i === 0 ? "运营" : i <= 3 ? `中继${i}` : `演示${String(i - 3).padStart(2, "0")}`} {m.address.slice(0, 8)} {fmt(m.mon, 3)}
                   </div>
                 ))}
               </div>
             )}
             <button disabled={!!busy} onClick={() => confirm("收摊：队里所有人算没消费，钱全部原路退回。确定？") && act("收摊", "close")}>
               🌙 收摊
-            </button>
-            <button className="danger" disabled={!!busy} onClick={() => confirm("重置：过号柜台、收摊、开新一场。彩排后用。确定？") && act("重置开新一场", "reset")}>
-              ♻️ 重置（彩排后开新一场）
             </button>
           </div>
         </section>

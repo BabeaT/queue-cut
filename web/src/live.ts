@@ -37,6 +37,8 @@ export type Stats = {
   toVictim: number;
   refunded: number;
   avgChainMs: number | null;
+  txs?: number; // 本场链上交易笔数
+  feeMon?: number; // 本场我们代付的 gas 费（MON）
   lastCut: LastCut | null;
   queueLength: number;
 };
@@ -57,6 +59,8 @@ export type LiveState = {
   leaders: { cutKing: { nick: string; value: number }[]; lieKing: { nick: string; value: number }[] };
   prices: { avg: number; count: number; noYield: number; buckets: { label: string; count: number }[] };
   spotlight: Spotlight;
+  reveal?: boolean; // 导演台打开「黄牛场景」：把只排不买的演示账号标出来
+  maxJoinsPerBlock?: number;
 };
 
 export type CutEvent = {
@@ -88,7 +92,9 @@ export type LiveEvent =
   | { type: "called" | "served"; uid: number; nick: string; user: string }
   | { type: "gone"; uid: number; nick: string; user: string; reason: string }
   | { type: "joined"; uid: number; nick: string; user: string; block: number }
-  | { type: "blockStats"; block: number; joins: number; txs: number }
+  | { type: "blockStats"; block: number; joins: number; cuts?: number; prices?: number; settles?: number; txs: number; maxJoins?: number }
+  | { type: "price"; uid: number; nick: string; user: string; price: number; noYield: boolean; block: number; txHash: string }
+  | { type: "reveal"; on: boolean }
   | { type: "spotlight"; spotlight: Spotlight }
   | { type: "cheers"; yield: number; hold: number }
   | { type: "stats"; stats: Stats }
@@ -147,6 +153,10 @@ function connect() {
     }
     if (msg.type === "stats" && current) {
       current = { ...current, stats: msg.stats };
+      stateSubs.forEach((f) => f(current!));
+    }
+    if (msg.type === "reveal" && current) {
+      current = { ...current, reveal: msg.on };
       stateSubs.forEach((f) => f(current!));
     }
     if (msg.type === "spotlight" && current) {

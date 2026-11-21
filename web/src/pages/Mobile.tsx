@@ -9,8 +9,8 @@ const AVATARS = ["🐼", "🦊", "🐯", "🐸", "🐙", "🦄", "🐳", "🐧",
 const BOT_AVATAR = "🕶️";
 const RANDOM_NAMES = ["靓仔", "靓女", "老细", "阿明", "阿珍", "肥仔", "叉烧", "虾饺", "肠粉", "奶茶", "菠萝包", "煲仔饭"];
 
-export function avatarOf(nick: string, uid: number, isBot = false) {
-  if (isBot) return BOT_AVATAR;
+export function avatarOf(nick: string, uid: number, scalper = false) {
+  if (scalper) return BOT_AVATAR;
   const first = [...nick][0] ?? "";
   if (/\p{Extended_Pictographic}/u.test(first)) return first;
   return AVATARS[uid % AVATARS.length];
@@ -60,7 +60,7 @@ function ding(kind: "money" | "call" | "refund" | "cut") {
   });
 }
 
-type Toast = { id: number; text: string; kind: "money" | "refund" | "info" | "error" };
+type Toast = { id: number; text: string; kind: "money" | "refund" | "info" | "error" | "receipt"; href?: string };
 type Packet = { id: number; from: string; fromAvatar: string; amount: number; opened: boolean };
 
 export default function Mobile() {
@@ -74,9 +74,9 @@ export default function Mobile() {
   const [myVote, setMyVote] = useState<"yield" | "hold" | null>(null);
   const toastId = useRef(0);
 
-  const toast = (text: string, kind: Toast["kind"] = "info") => {
+  const toast = (text: string, kind: Toast["kind"] = "info", href?: string) => {
     const id = ++toastId.current;
-    setToasts((t) => [...t.slice(-2), { id, text, kind }]);
+    setToasts((t) => [...t.slice(-2), { id, text, kind, href }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === "error" ? 6000 : 4000);
   };
 
@@ -141,6 +141,13 @@ export default function Mobile() {
     try {
       const r = await fn();
       if (r?.ok === false) toast(`${label}失败`, "error");
+      else if (r?.hash)
+        // 链上小票：这一步真的上链了
+        toast(
+          `⛓️ ${label}已上链 · 区块 #${r.block} · ${r.totalMs}ms · gas 费约 ${fmt((r.gasLimit * 104) / 1e9, 3)} MON（我们付）· 点我看交易`,
+          "receipt",
+          `${EXPLORER}/tx/${r.hash}`,
+        );
       return r;
     } catch (e) {
       toast(`${label}失败：${(e as Error).message}`, "error");
@@ -202,6 +209,7 @@ export default function Mobile() {
             queue={state.queue}
             balance={balance}
             busy={busy}
+            reveal={!!state.reveal}
             block={block || state.block}
             onSetPrice={(p, ny) => run("改价", () => actions.setPrice(p, ny))}
             onCut={(toPos, maxPay) => run("插队", () => actions.cut(toPos, maxPay))}
@@ -254,7 +262,7 @@ export default function Mobile() {
 
       <div className="m-toasts">
         {toasts.map((t) => (
-          <div key={t.id} className={`m-toast ${t.kind}`}>
+          <div key={t.id} className={`m-toast ${t.kind}`} onClick={() => t.href && window.open(t.href, "_blank")}>
             {t.text}
           </div>
         ))}
@@ -369,6 +377,7 @@ function QueuedView(props: {
   queue: QueueRow[];
   balance: number;
   busy: string | null;
+  reveal: boolean;
   block: number;
   onSetPrice: (p: number, noYield: boolean) => void;
   onCut: (toPos: number, maxPay: number) => void;
@@ -379,7 +388,12 @@ function QueuedView(props: {
   const effNoYield = row.pendingFrom ? row.pendingNoYield : row.noYield;
   const [price, setPrice] = useState(effPrice);
   const [noYield, setNoYield] = useState(effNoYield);
-  const [cutOpen, setCutOpen] = useState(false);
+  const [cutTarget, setCutTarget] = useState<number | null>(null); // 要插到谁前面（uid）；null = 面板关着
+  const aheadRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = aheadRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [row.rank]);
   const dirty = price !== effPrice || noYield !== effNoYield;
   const pending = row.pendingFrom > props.block;
   const prevRank = useRef(row.rank);
@@ -393,7 +407,10 @@ function QueuedView(props: {
     }
   }, [row.rank]);
   const myIdx = row.rank - 1;
-  const ahead = queue.slice(Math.max(0, myIdx - 5), myIdx);
+  const ahead = queue.slice(0, myIdx);
+  // 从我往前数，第一个「不让」的人以及他前面的人都插不过去
+  let wallIdx = -1;
+  for (let k = myIdx - 1; k >= 0; k--) if (queue[k].noYield) { wallIdx = k; break; }
 
   return (
     <div className="m-main">
@@ -423,19 +440,33 @@ function QueuedView(props: {
 
       {ahead.length > 0 && (
         <div className="m-ahead">
-          <div className="dim small">你前面的人（点「插队」选要越过谁）</div>
-          <div className="m-ahead-row">
-            {ahead.map((q) => (
-              <div key={q.uid} className={`m-person ${q.isBot ? "bot" : ""} ${q.noYield ? "wall" : ""}`}>
-                <div className="m-person-av">{avatarOf(q.nick, q.uid, q.isBot)}</div>
-                <div className="m-person-tag">{q.noYield ? "🧱" : fmt(q.price, 1)}</div>
-              </div>
-            ))}
+          <div className="m-row-between">
+            <span className="m-label">⚡ 想插队？点你要插到谁前面</span>
+            <span className="dim small">← 左滑看更前面</span>
+          </div>
+          <div className="m-ahead-row" ref={aheadRef}>
+            {ahead.map((q, k) => {
+              const blocked = k <= wallIdx;
+              return (
+                <button
+                  key={q.uid}
+                  className={`m-person ${q.noYield ? "wall" : ""} ${blocked ? "blocked" : ""}`}
+                  disabled={blocked || !!props.busy}
+                  onClick={() => setCutTarget(q.uid)}
+                >
+                  <div className="m-person-rank">{q.rank}</div>
+                  <div className="m-person-av">{avatarOf(q.nick, q.uid, props.reveal && q.isBot)}</div>
+                  <div className="m-person-tag">{q.noYield ? "🧱" : fmt(q.price, 1)}</div>
+                </button>
+              );
+            })}
             <div className="m-person me">
+              <div className="m-person-rank">{row.rank}</div>
               <div className="m-person-av">{avatarOf(row.nick, row.uid)}</div>
               <div className="m-person-tag">我</div>
             </div>
           </div>
+          {wallIdx >= 0 && <div className="dim small">🧱 第 {queue[wallIdx].rank} 位选了「不让」，他和他前面的人插不过去</div>}
         </div>
       )}
 
@@ -454,25 +485,21 @@ function QueuedView(props: {
         )}
       </div>
 
-      {row.rank > 1 && (
-        <button className="danger m-cta m-cut-btn" disabled={!!props.busy} onClick={() => setCutOpen(true)}>
-          ⚡ 我要插队
-        </button>
-      )}
-
       <button className="m-leave" disabled={!!props.busy} onClick={() => confirm("确定不排了？收到的红包会原路退回。") && props.onLeave()}>
         不排了
       </button>
 
-      {cutOpen && (
+      {cutTarget !== null && (
         <CutSheet
           queue={queue}
           row={row}
+          targetUid={cutTarget}
+          reveal={props.reveal}
           balance={props.balance}
           busy={props.busy}
-          onClose={() => setCutOpen(false)}
+          onClose={() => setCutTarget(null)}
           onCut={(toPos, maxPay) => {
-            setCutOpen(false);
+            setCutTarget(null);
             props.onCut(toPos, maxPay);
           }}
         />
@@ -485,6 +512,8 @@ function QueuedView(props: {
 function CutSheet(props: {
   queue: QueueRow[];
   row: QueueRow;
+  targetUid: number;
+  reveal: boolean;
   balance: number;
   busy: string | null;
   onClose: () => void;
@@ -506,7 +535,10 @@ function CutSheet(props: {
     return list;
   }, [props.queue, myIdx]);
   const wall = myIdx - reachable.length - 1 >= 0 ? props.queue[myIdx - reachable.length - 1] : null;
-  const [sel, setSel] = useState(reachable.length - 1);
+  const [sel, setSel] = useState(() => {
+    const i = reachable.findIndex((x) => x.q.uid === props.targetUid);
+    return i >= 0 ? i : 0;
+  });
   const chosen = reachable[Math.min(sel, reachable.length - 1)];
   const passed = reachable.slice(0, Math.min(sel, reachable.length - 1) + 1);
   const maxOne = passed.reduce((m, x) => (x.q.price > m.q.price ? x : m), passed[0] ?? reachable[0]);
@@ -515,7 +547,7 @@ function CutSheet(props: {
     <div className="m-sheet-mask" onClick={props.onClose}>
       <div className="m-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="m-sheet-head">
-          <b>插到谁前面？</b>
+          <b>确认插队</b>
           <button className="m-x" onClick={props.onClose}>
             ✕
           </button>
@@ -527,7 +559,7 @@ function CutSheet(props: {
             <div className="m-sheet-list">
               {wall && (
                 <div className="m-sheet-item wallitem">
-                  <span>{avatarOf(wall.nick, wall.uid, wall.isBot)}</span>
+                  <span>{avatarOf(wall.nick, wall.uid, props.reveal && wall.isBot)}</span>
                   <span className="grow">{nameOf(wall.nick)} · 第 {wall.rank} 位</span>
                   <span>🧱 不让</span>
                 </div>
@@ -537,10 +569,10 @@ function CutSheet(props: {
                 const on = i <= sel;
                 return (
                   <button key={x.q.uid} className={`m-sheet-item ${on ? "on" : ""} ${i === sel ? "target" : ""}`} onClick={() => setSel(i)}>
-                    <span>{avatarOf(x.q.nick, x.q.uid, x.q.isBot)}</span>
+                    <span>{avatarOf(x.q.nick, x.q.uid, props.reveal && x.q.isBot)}</span>
                     <span className="grow">
                       {nameOf(x.q.nick)}
-                      {x.q.isBot && <em className="botmark">黄牛</em>} · 第 {x.q.rank} 位
+                      {x.q.isBot && <em className="botmark">{props.reveal ? "黄牛" : "🤖"}</em>} · 第 {x.q.rank} 位
                     </span>
                     <span className="mono">🧧 {fmt(x.q.price, 2)}</span>
                   </button>
@@ -563,7 +595,7 @@ function CutSheet(props: {
             >
               {chosen.worst > props.balance
                 ? `钱包不够（要 ${fmt(chosen.worst)}）`
-                : `插到第 ${chosen.q.rank} 位 · 给 ${passed.length} 人发红包 共 ${fmt(chosen.cum)}`}
+                : `确认插到第 ${chosen.q.rank} 位 · 付 ${fmt(chosen.cum)} 给 ${passed.length} 个人`}
             </button>
             <div className="dim small center">每个人拿他自己挂的价 · 你确认的价就是上限，不会多扣</div>
           </>
