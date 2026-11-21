@@ -14,6 +14,7 @@ import {
   formatEther,
   parseEther,
   parseEventLogs,
+  decodeErrorResult,
   getAddress,
   hexToString,
   type Address,
@@ -51,6 +52,8 @@ const pub = createPublicClient({
   transport: fallback(RPC_HTTP.map((u) => httpTransport(u, { timeout: 10_000, retryCount: 1 }))),
 });
 
+// eth_sendRawTransactionSync 只走主 RPC（备用 RPC 不一定支持），失败再退回普通发送 + 等回执
+const syncClient = createPublicClient({ chain: monadTestnet, transport: httpTransport(RPC_HTTP[0], { timeout: 12_000, retryCount: 0 }) });
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 23), ...a);
 const num = (x: bigint) => Number(formatEther(x));
 
@@ -82,7 +85,7 @@ class Sender {
       data,
       gas,
       nonce,
-      maxFeePerGas: baseFee * 2n + PRIORITY,
+      maxFeePerGas: (baseFee * 115n) / 100n + PRIORITY, // Monad 每块 base fee 最多涨 1/28，留 15% 足够；余额要覆盖 limit×maxFee
       maxPriorityFeePerGas: PRIORITY,
     });
     this.nonce = nonce + 1;
@@ -114,13 +117,30 @@ class Sender {
       this.busy++;
       try {
         const raw = await this.sign(to, data, gas);
-        onSigned?.(keccak256(raw));
+        const hash = keccak256(raw);
+        onSigned?.(hash);
         const t = Date.now();
-        const receipt = (await pub.request({
-          method: "eth_sendRawTransactionSync" as any,
-          params: [raw, 8000] as any,
-        })) as any;
-        return { hash: receipt.transactionHash as Hex, receipt, ms: Date.now() - t };
+        try {
+          const receipt = (await syncClient.request({
+            method: "eth_sendRawTransactionSync" as any,
+            params: [raw, 8000] as any,
+          })) as any;
+          return { hash: receipt.transactionHash as Hex, receipt, ms: Date.now() - t };
+        } catch (e) {
+          log("sync send failed, fallback:", errMsg(e));
+          try {
+            await pub.request({ method: "eth_sendRawTransaction", params: [raw] });
+          } catch (e2) {
+            const m = errMsg(e2).toLowerCase();
+            if (!m.includes("known") && !m.includes("nonce too low")) throw e2;
+          }
+          const r = await pub.waitForTransactionReceipt({ hash, pollingInterval: 250, timeout: 15_000 });
+          return {
+            hash,
+            receipt: { ...r, status: r.status, blockNumber: r.blockNumber, gasUsed: r.gasUsed, logs: r.logs },
+            ms: Date.now() - t,
+          };
+        }
       } catch (e) {
         this.nonce = null;
         throw e;
@@ -138,15 +158,55 @@ const owner = new Sender(keys.deployer.privateKey);
 const relayers = keys.relayers.map((r) => new Sender(r.privateKey));
 const bots = keys.bots.map((b) => new Sender(b.privateKey));
 let rr = 0;
-function pickRelayer() {
-  let best = relayers[rr++ % relayers.length];
-  for (const r of relayers) if (r.busy < best.busy) best = r;
+const relayerBal = new Map<Sender, bigint>();
+async function refreshRelayerBal() {
+  await Promise.all(
+    relayers.map(async (r) => relayerBal.set(r, await pub.getBalance({ address: r.account.address }).catch(() => 0n))),
+  );
+}
+setInterval(refreshRelayerBal, 15_000);
+refreshRelayerBal();
+function pickRelayer(need = 0n) {
+  // 先挑余额够（limit×maxFee）的，再挑最闲的；Monad 的 reserve balance 也按这个算
+  const ok = relayers.filter((r) => (relayerBal.get(r) ?? 10n ** 18n) > need);
+  const pool = ok.length ? ok : [...relayers].sort((a, b) => Number((relayerBal.get(b) ?? 0n) - (relayerBal.get(a) ?? 0n)));
+  let best = pool[rr++ % pool.length];
+  for (const r of pool) if (r.busy < best.busy) best = r;
   return best;
 }
 
+const ERR_ZH: Record<string, string> = {
+  Blocked: "被「不让」的人挡住了，插不过去",
+  OverMaxPay: "有人刚改了价，超过你确认的上限，请重新看一下价格",
+  InsufficientBalance: "钱包余额不够",
+  BadTarget: "队伍刚变了，请重新选位置",
+  AlreadyQueued: "你已经在队里了",
+  NotQueued: "你现在不在队里",
+  ShopIsClosed: "已经收摊了",
+  BadStatus: "状态不对（可能已经被处理了）",
+  NotClerk: "只有店员能操作",
+};
 async function estimate(from: Address, to: Address, data: Hex, pct = 125n, pad = 10_000n) {
-  const g = await pub.estimateGas({ account: from, to, data });
-  return (g * pct) / 100n + pad;
+  try {
+    const g = await pub.estimateGas({ account: from, to, data });
+    return (g * pct) / 100n + pad;
+  } catch (e: any) {
+    // 把合约的自定义错误翻成中文
+    let raw: Hex | undefined;
+    e?.walk?.((x: any) => {
+      if (typeof x?.data === "string" && x.data.startsWith("0x")) raw = x.data;
+      return false;
+    });
+    if (raw) {
+      try {
+        const { errorName } = decodeErrorResult({ abi: queueCutAbi, data: raw });
+        throw new Error(ERR_ZH[errorName] ?? errorName);
+      } catch (inner) {
+        if ((inner as Error).message && !(inner as Error).message.includes("not found")) throw inner;
+      }
+    }
+    throw e;
+  }
 }
 
 async function ownerCall(fn: string, args: unknown[], gas?: bigint) {
@@ -700,13 +760,14 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
           signature: r.signature as Hex,
         };
         const data = encodeFunctionData({ abi: forwarderAbi, functionName: "execute", args: [reqData] });
-        const relayer = pickRelayer();
-        // Monad 按 gas limit 收费：外层 = 内层（已按估算 +30%）+ 转发开销，不再多估一次
+        // Monad 按 gas limit 收费：外层 = 内层（已按估算 +18%）+ 转发开销，不再多估一次
         const outerGas = BigInt(r.gas) + 70_000n;
+        const relayer = pickRelayer(outerGas * ((baseFee * 115n) / 100n + PRIORITY));
         const sent = await relayer.submitSync(FWD, data, outerGas, (h) =>
           relayT0.set(h, { t0, gasLimit: Number(outerGas) }),
         );
         const ok = sent.receipt.status === "0x1" || sent.receipt.status === "success";
+        if (!ok) log("relay tx reverted", sent.hash);
         // 回执里就有事件，直接推给全场（不等轮询）
         if (ok) {
           const logs = parseEventLogs({ abi: queueCutAbi, logs: sent.receipt.logs, strict: false });

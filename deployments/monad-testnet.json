@@ -1,7 +1,7 @@
 {
   "chainId": 10143,
   "forwarder": "0x5B73b76D850357E2ffc00cbA44Eb58dC96Dcb8EE",
-  "queueCut": "0x82c3Dc0e0E06c14E2Bf713A9219E0163894bF090",
+  "queueCut": "0x0Eede199697d4b5a4E6b95c82858989a5525D35c",
   "deployer": "0xf1dBCaC3F29C2864938A05Dda33C4bB3Bf83241C",
-  "deployBlock": 81508720
+  "deployBlock": 81512164
 }

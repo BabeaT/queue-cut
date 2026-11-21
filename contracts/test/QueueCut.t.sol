@@ -93,16 +93,17 @@ contract QueueCutTest is Test {
 
     function test_PriceChangeDelayedTwoBlocks() public {
         _joinAll(P);
+        uint256 b0 = block.number;
         vm.prank(users[18]);
         q.setPrice(5e18, false);
         // 同一块和下一块，旧价有效
         (, uint96 total, uint96 worst,) = q.quoteCut(users[19], 18);
         assertEq(total, P);
         assertEq(worst, 5e18);
-        vm.roll(block.number + 1);
+        vm.roll(b0 + 1);
         (, total,,) = q.quoteCut(users[19], 18);
         assertEq(total, P);
-        vm.roll(block.number + 1);
+        vm.roll(b0 + 2);
         (, total,,) = q.quoteCut(users[19], 18);
         assertEq(total, 5e18);
     }

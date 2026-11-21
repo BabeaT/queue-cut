@@ -29,10 +29,11 @@ const pks = Array.from({ length: N }, () => generatePrivateKey());
 await Promise.all(pks.map((pk) => post("/api/onboard", { address: privateKeyToAccount(pk).address })));
 console.log("onboarded", N);
 for (let i = 0; i < N; i++) {
-  const r = await relay(pks[i], "join", [parseEther("0.5"), false, stringToHex(`测试${i}`, { size: 16 })]);
+  const r = await relay(pks[i], "join", [parseEther("0.5"), false, stringToHex(`${["🐼阿明","🦊小红","🐯大雄","🐸阿珍","🧋奶茶控","🐙八爪"][i % 6]}`, { size: 16 })]);
   console.log("join", i, r.ok, r.syncMs + "ms", "gas", r.gasUsed, "/", r.gasLimit);
 }
-const r = await relay(pks[N - 1], "cut", [0, parseEther("100")]);
+const head = (await (await fetch(API + "/api/state")).json()).queue[0].pos;
+const r = await relay(pks[N - 1], "cut", [head, parseEther("100")]);
 console.log("cut", r.ok, "sync", r.syncMs + "ms", "total", r.totalMs + "ms", "gas", r.gasUsed, "/", r.gasLimit, r.hash);
 await new Promise((s) => setTimeout(s, 1500));
 const st = await (await fetch(API + "/api/state")).json();

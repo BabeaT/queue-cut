@@ -28,7 +28,7 @@ contract QueueCut is ERC2771Context {
     struct Entry {
         // slot 0
         address user;
-        uint32 pos; // line 里的绝对下标
+        uint32 lastOut; // 作为插队者，最新一条付款记录（链表头）
         uint32 session;
         Status status;
         bool noYield;
@@ -37,17 +37,21 @@ contract QueueCut is ERC2771Context {
         uint96 price; // 当前生效的让位价
         uint96 pendingPrice;
         uint40 pendingFrom; // 0 = 没有待生效的改价
-        // slot 2
+        // slot 2 —— 插队时被越过的人只改这一个槽（MIP-8：少碰页、少写槽）
         uint96 frozenIn; // 作为被插者还冻结着的钱
         uint96 frozenOut; // 作为插队者还冻结着的钱
-        uint40 joinedBlock;
+        uint32 lastIn; // 作为被插者，最新一条收款记录（链表头）
+        uint32 pos; // line 里的绝对下标
     }
 
+    /// @dev 一条记录一个槽：两个链表指针把同一个人的收款、付款串起来，不再为每人单独开数组
     struct Receipt {
         uint32 cutter;
         uint32 victim;
         uint96 amount;
         uint8 state; // 0 冻结，1 已付被插者，2 已退插队者
+        uint32 prevIn; // 同一个被插者的上一条
+        uint32 prevOut; // 同一个插队者的上一条
     }
 
     // ───────────────────────── 存储 ─────────────────────────
@@ -65,8 +69,6 @@ contract QueueCut is ERC2771Context {
     uint32 public head; // 队首下标
 
     Receipt[] public receipts;
-    mapping(uint32 => uint32[]) internal inRc; // 被插者 uid -> 收款记录下标
-    mapping(uint32 => uint32[]) internal outRc; // 插队者 uid -> 付款记录下标
 
     mapping(address => uint32) public activeUid; // 本场正在用的 uid
     mapping(address => uint256) public balanceOf; // 排队币（合约内记账）
@@ -140,7 +142,7 @@ contract QueueCut is ERC2771Context {
         entries.push(
             Entry({
                 user: u,
-                pos: pos,
+                lastOut: 0,
                 session: session,
                 status: Status.Queued,
                 noYield: noYield,
@@ -150,7 +152,8 @@ contract QueueCut is ERC2771Context {
                 pendingFrom: 0,
                 frozenIn: 0,
                 frozenOut: 0,
-                joinedBlock: uint40(block.number)
+                lastIn: 0,
+                pos: pos
             })
         );
         line.push(uid);
@@ -186,6 +189,7 @@ contract QueueCut is ERC2771Context {
         uint32 n;
         uint96 total;
         uint32 k = from;
+        uint32 lastOut = e.lastOut;
 
         while (k > toPos) {
             uint32 v = line[k - 1];
@@ -194,18 +198,23 @@ contract QueueCut is ERC2771Context {
                 _applyPending(ve);
                 if (ve.noYield) break; // 「不让」= 一堵墙
                 uint96 p = ve.price;
+                uint32 lastIn = ve.lastIn;
                 if (p > 0) {
                     total += p;
                     uint32 rid = uint32(receipts.length);
-                    receipts.push(Receipt({cutter: me, victim: v, amount: p, state: 0}));
-                    inRc[v].push(rid);
-                    outRc[me].push(rid);
-                    ve.frozenIn += p;
+                    receipts.push(
+                        Receipt({cutter: me, victim: v, amount: p, state: 0, prevIn: lastIn, prevOut: lastOut})
+                    );
+                    lastIn = rid;
+                    lastOut = rid;
                 }
+                // 一次写回槽 2：冻结收益 + 收款链表头 + 新位置
+                ve.frozenIn += p;
+                ve.lastIn = lastIn;
+                ve.pos = k;
                 victims[n] = v;
                 amounts[n] = p;
                 n++;
-                ve.pos = k;
             }
             line[k] = v;
             k--;
@@ -213,6 +222,7 @@ contract QueueCut is ERC2771Context {
         if (k == from) revert Blocked();
         line[k] = me;
         e.pos = k;
+        e.lastOut = lastOut;
 
         if (total > maxPay) revert OverMaxPay(total, maxPay);
         uint256 bal = balanceOf[u];
@@ -475,13 +485,11 @@ contract QueueCut is ERC2771Context {
         if (result == Status.Served) emit Served(uid);
         else emit Gone(uid, reason);
 
-        uint32[] storage ins = inRc[uid];
-        for (uint256 i; i < ins.length; i++) {
-            _trySettle(ins[i]);
+        for (uint32 rid = e.lastIn; rid != 0; rid = receipts[rid].prevIn) {
+            _trySettle(rid);
         }
-        uint32[] storage outs = outRc[uid];
-        for (uint256 i; i < outs.length; i++) {
-            _trySettle(outs[i]);
+        for (uint32 rid = e.lastOut; rid != 0; rid = receipts[rid].prevOut) {
+            _trySettle(rid);
         }
     }
 

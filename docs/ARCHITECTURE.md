@@ -135,7 +135,7 @@ myEntry(user) / entryOf(uid) / lineLength() / receiptCount()
 
 | 合约 | 地址 |
 |---|---|
-| QueueCut | `0x82c3Dc0e0E06c14E2Bf713A9219E0163894bF090` |
+| QueueCut | `0x0Eede199697d4b5a4E6b95c82858989a5525D35c` |
 | ERC2771Forwarder（name = `QueueCutForwarder`） | `0x5B73b76D850357E2ffc00cbA44Eb58dC96Dcb8EE` |
 | 运营账户（owner / 店员） | `0xf1dBCaC3F29C2864938A05Dda33C4bB3Bf83241C` |
 
