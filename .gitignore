@@ -1,0 +1,17 @@
+# deps / build
+node_modules/
+dist/
+.next/
+out/
+cache/
+broadcast/*/31337/
+# secrets
+.env
+.env.*
+!.env.example
+.mojo/
+bots/keys*.json
+*.key
+# misc
+.DS_Store
+*.log
