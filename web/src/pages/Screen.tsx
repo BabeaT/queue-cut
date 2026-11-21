@@ -126,19 +126,19 @@ export default function Screen() {
           e.victims.slice(0, 40).forEach((v, i) => {
             const r = rectOf(v.uid);
             if (!r || !cardEls.current.has(v.uid)) return;
-            links.push({ x1, y1, x2: r.left + r.width / 2, y2: r.top + r.height * 0.4, label: fmt(v.amount), delay: i * 30 });
+            links.push({ x1, y1, x2: r.left + r.width / 2, y2: r.top + r.height * 0.4, label: fmt(v.amount), delay: i * 70 });
           });
           if (links.length) {
             const hx = links.reduce((a, l) => a + l.x2, x1) / (links.length + 1);
             const hy = Math.max(215, Math.min(y1, ...links.map((l) => l.y2)) - 150);
-            const hubLinks: Link[] = links.map((l, i) => ({ x1: l.x2, y1: l.y2 - 30, x2: hx, y2: hy + 18, delay: 500 + i * 20, thin: true }));
+            const hubLinks: Link[] = links.map((l, i) => ({ x1: l.x2, y1: l.y2 - 30, x2: hx, y2: hy + 18, delay: 700 + i * 70, thin: true }));
             addBatch(
               {
                 kind: "pay",
                 links: [...links, ...hubLinks],
                 hub: { x: hx, y: hy, text: `⛓ #${e.block} · ${e.victims.length} 笔付款 · 同一笔交易` },
               },
-              3400,
+              4600,
             );
           }
                 }, 700);
@@ -385,6 +385,7 @@ export default function Screen() {
         )}
         {batches.map((b) => (
           <svg key={b.id} className={`sc-links ${b.kind}`} width="100%" height="100%">
+            {b.kind === "pay" && <rect className="sc-dim" x="0" y="0" width="100%" height="100%" />}
             {b.links.map((l, i) => {
               const a = arc(l);
               return (
@@ -395,12 +396,13 @@ export default function Screen() {
                     pathLength={1}
                     style={{ animationDelay: `${l.delay}ms` }}
                   />
+                  {!l.thin && <path className="sc-link-flow" d={a.d} pathLength={1} style={{ animationDelay: `${l.delay + 450}ms` }} />}
                   {!l.thin && (
-                    <circle className="sc-link-dot" r={8}>
-                      <animateMotion dur="0.7s" begin={`${(l.delay + 120) / 1000}s`} fill="freeze" path={a.d} />
+                    <circle className="sc-link-dot" r={9} style={{ opacity: 0, animation: `sc-dot-in 0.1s linear ${l.delay + 130}ms forwards` }}>
+                      <animateMotion dur="0.9s" begin={`${(l.delay + 120) / 1000}s`} fill="freeze" path={a.d} />
                     </circle>
                   )}
-                  {l.label && b.links.filter((x) => !x.thin).length <= 14 && (
+                  {l.label && b.kind !== "pay" && (
                     <text className="sc-link-label" x={a.lx} y={a.ly} textAnchor="middle" style={{ animationDelay: `${l.delay + 300}ms` }}>
                       {l.label}
                     </text>

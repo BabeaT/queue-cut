@@ -955,3 +955,19 @@ body[data-page="screen"] { background: #55B8ED; color-scheme: light; }
 .sc-root .sc-main { min-height: 0; }
 .sc-root .sc-foot.sc-foot2 { position: relative; z-index: 5; flex-wrap: wrap; row-gap: 6px; }
 .sc-root .sc-cutstack { top: 164px; }
+
+/* ── 连线升级：压暗舞台、辉光细线、流动光点、波浪式发出 ── */
+.sc-links { animation: sc-links-out 0.6s ease 3.9s forwards; }
+.sc-dim { fill: rgba(12, 10, 32, 0.62); opacity: 0; animation: sc-dim-in 0.35s ease forwards; }
+@keyframes sc-dim-in { to { opacity: 1; } }
+.sc-links.pay .sc-link { stroke: #ff5aa5; stroke-width: 2.5; filter: drop-shadow(0 0 6px #ff2f8a) drop-shadow(0 0 14px rgba(255, 47, 138, 0.6)); animation-duration: 0.6s; }
+.sc-links.pay .sc-link.thin { stroke: rgba(255, 216, 77, 0.45); stroke-width: 1.2; filter: none; }
+.sc-link-flow { fill: none; stroke: #fff; stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 0.03 0.11; opacity: 0; animation: sc-flow 0.9s linear infinite, sc-flow-in 0.2s ease forwards; }
+@keyframes sc-flow { from { stroke-dashoffset: 0.14; } to { stroke-dashoffset: 0; } }
+@keyframes sc-flow-in { to { opacity: 0.95; } }
+.sc-links.pay .sc-link-dot { fill: #ffd84d; stroke: #fff; stroke-width: 2; filter: drop-shadow(0 0 8px #ffd84d) drop-shadow(0 0 16px rgba(255, 216, 77, 0.8)); }
+.sc-links foreignObject .sc-hub { box-shadow: 0 0 0 2px #ffd84d, 0 0 24px rgba(255, 216, 77, 0.7); }
+
+@keyframes sc-dot-in { to { opacity: 1; } }
+/* 横幅和时间线放到舞台底部，不挡队伍 */
+.sc-root .sc-cutstack { top: auto; bottom: 118px; }
