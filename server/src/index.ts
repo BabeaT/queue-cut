@@ -454,6 +454,18 @@ function applyLog(l: any, live: boolean) {
       break;
     }
     case "SessionStarted":
+      // 新的一场：统计、排行榜清零
+      stats.cuts = stats.packets = stats.toVictim = stats.refunded = 0;
+      stats.lastCut = null;
+      stats.latencies = [];
+      paidBy.clear();
+      gotBy.clear();
+      seenTx.clear();
+      feeWei = 0n;
+      botProfit = 0n;
+      botHistory.length = 0;
+      maxJoinsPerBlock = 0;
+      reveal = false;
       if (live) broadcast({ type: "session", session: Number(a.session) });
       break;
   }
