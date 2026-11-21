@@ -42,6 +42,19 @@ type BlockAgg = { joins: number; cuts: number; prices: number; settles: number; 
 type Ghost = { id: number; x: number; y: number; w: number; h: number; avatar: string; name: string; isBot: boolean; uid: number };
 type Beam = { id: number; x: number; y: number; len: number; angle: number };
 type Banner = { id: number; cut: CutEvent; rank: number };
+type Link = { x1: number; y1: number; x2: number; y2: number; label?: string; delay: number; thin?: boolean };
+type LinkBatch = {
+  id: number;
+  kind: "pay" | "paid" | "refund";
+  links: Link[];
+  hub?: { x: number; y: number; text: string };
+};
+const arc = (l: Link) => {
+  const mx = (l.x1 + l.x2) / 2;
+  const d = Math.hypot(l.x2 - l.x1, l.y2 - l.y1);
+  const my = Math.min(l.y1, l.y2) - Math.min(170, 40 + d * 0.28);
+  return { d: `M ${l.x1} ${l.y1} Q ${mx} ${my} ${l.x2} ${l.y2}`, lx: mx, ly: (my + (l.y1 + l.y2) / 2) / 2 };
+};
 
 let fxSeq = 0;
 const nextId = () => ++fxSeq;
@@ -55,6 +68,12 @@ export default function Screen() {
   const [flies, setFlies] = useState<Fly[]>([]);
   const [ghosts, setGhosts] = useState<Ghost[]>([]);
   const [beams, setBeams] = useState<Beam[]>([]);
+  const [batches, setBatches] = useState<LinkBatch[]>([]);
+  const addBatch = (b: Omit<LinkBatch, "id">, ms: number) => {
+    const id = nextId();
+    setBatches((a) => [...a.slice(-5), { ...b, id }]);
+    setTimeout(() => setBatches((a) => a.filter((x) => x.id !== id)), ms);
+  };
   const [banner, setBanner] = useState<Banner | null>(null);
   const [shake, setShake] = useState(false);
   const [trace, setTrace] = useState<Trace | null>(null);
@@ -90,47 +109,39 @@ export default function Screen() {
           return r < b ? v.uid : best;
         }, undefined);
         const to = rectOf(firstVictim);
-        if (from && to) {
-          const x1 = from.left + from.width / 2;
-          const y1 = from.top + from.height / 2;
-          const x2 = to.left + to.width / 2;
-          const y2 = to.top + to.height / 2;
-          const id = nextId();
-          setBeams((b) => [
-            ...b,
-            { id, x: x1, y: y1, len: Math.hypot(x2 - x1, y2 - y1), angle: (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI },
-          ]);
-          later(1400, () => setBeams((b) => b.filter((x) => x.id !== id)));
-        }
+        void to;
+        void setBeams;
         addFx(
           e.victims.map((v) => ({ uid: v.uid, kind: "packet" as const, text: `+${fmt(v.amount)}` })),
           4200,
         );
-        // 钱的流向：金币从插队者飞向每个被越过的人（错峰，最多 40 枚）
-        if (from) {
-          const coins: Fly[] = [];
+        // 连线：从插队的人分别连到每个被越过的人，金币沿线滑过去；再汇到同一个区块
+        // 等队伍排好新位置再画线：线从插队的人的新位置出发
+        setTimeout(() => {
+          const from2 = rectOf(e.cutter.uid);
+          if (!from2) return;
+          const x1 = from2.left + from2.width / 2;
+          const y1 = from2.top + from2.height * 0.45;
+          const links: Link[] = [];
           e.victims.slice(0, 40).forEach((v, i) => {
             const r = rectOf(v.uid);
-            if (!r) return;
-            const x = from.left + from.width / 2;
-            const y = from.top + from.height / 2;
-            coins.push({
-              id: nextId(),
-              x,
-              y,
-              dx: r.left + r.width / 2 - x,
-              dy: r.top + r.height / 2 - y,
-              text: "🪙",
-              delay: 150 + i * 35,
-              coin: true,
-            });
+            if (!r || !cardEls.current.has(v.uid)) return;
+            links.push({ x1, y1, x2: r.left + r.width / 2, y2: r.top + r.height * 0.4, label: fmt(v.amount), delay: i * 30 });
           });
-          if (coins.length) {
-            const ids = new Set(coins.map((c) => c.id));
-            setFlies((f) => [...f.slice(-40), ...coins]);
-            later(3200, () => setFlies((f) => f.filter((x) => !ids.has(x.id))));
+          if (links.length) {
+            const hx = links.reduce((a, l) => a + l.x2, x1) / (links.length + 1);
+            const hy = Math.max(215, Math.min(y1, ...links.map((l) => l.y2)) - 150);
+            const hubLinks: Link[] = links.map((l, i) => ({ x1: l.x2, y1: l.y2 - 30, x2: hx, y2: hy + 18, delay: 500 + i * 20, thin: true }));
+            addBatch(
+              {
+                kind: "pay",
+                links: [...links, ...hubLinks],
+                hub: { x: hx, y: hy, text: `⛓ #${e.block} · ${e.victims.length} 笔付款 · 同一笔交易` },
+              },
+              3400,
+            );
           }
-        }
+                }, 700);
         const targetRank = firstVictim !== undefined ? (queue.find((q) => q.uid === firstVictim)?.rank ?? 1) : 1;
         const id = nextId();
         setBanner({ id, cut: e, rank: targetRank });
@@ -142,27 +153,18 @@ export default function Screen() {
         break;
       }
       case "settled": {
+        const va = cardEls.current.has(e.victim.uid) ? rectOf(e.victim.uid) : null;
+        const cb = cardEls.current.has(e.cutter.uid) ? rectOf(e.cutter.uid) : null;
+        const pair =
+          va && cb
+            ? { x1: va.left + va.width / 2, y1: va.top + va.height * 0.4, x2: cb.left + cb.width / 2, y2: cb.top + cb.height * 0.4 }
+            : null;
         if (e.toVictim) {
           addFx([{ uid: e.victim.uid, kind: "paid", text: `🔓 到账 +${fmt(e.amount)}` }], 3000);
+          if (pair) addBatch({ kind: "paid", links: [{ ...pair, label: `🔓 ${fmt(e.amount)}`, delay: 0 }] }, 1800);
         } else {
           addFx([{ uid: e.victim.uid, kind: "refund", text: `↩ 退回 ${fmt(e.amount)}` }], 2600);
-          const a = rectOf(e.victim.uid);
-          const b = rectOf(e.cutter.uid);
-          if (a && b) {
-            const id = nextId();
-            setFlies((f) => [
-              ...f,
-              {
-                id,
-                x: a.left + a.width / 2,
-                y: a.top + 10,
-                dx: b.left + b.width / 2 - (a.left + a.width / 2),
-                dy: b.top + 10 - (a.top + 10),
-                text: `🪙${fmt(e.amount)}`,
-              },
-            ].slice(-40));
-            later(1500, () => setFlies((f) => f.filter((x) => x.id !== id)));
-          }
+          if (pair) addBatch({ kind: "refund", links: [{ ...pair, label: `↩ ${fmt(e.amount)}`, delay: 0 }] }, 2200);
         }
         break;
       }
@@ -259,7 +261,8 @@ export default function Screen() {
     return m;
   }, [fx]);
 
-  const spotlight = state?.spotlight ?? null;
+  const spotlight = null as Spotlight | null;
+  void SpotlightPanel;
   const dense = queue.length > 48;
 
   return (
@@ -380,8 +383,39 @@ export default function Screen() {
             {trace && <CutTrace key={trace.id} trace={trace} lastCut={state?.stats?.lastCut ?? null} solo={!banner} />}
           </div>
         )}
+        {batches.map((b) => (
+          <svg key={b.id} className={`sc-links ${b.kind}`} width="100%" height="100%">
+            {b.links.map((l, i) => {
+              const a = arc(l);
+              return (
+                <g key={i}>
+                  <path
+                    className={`sc-link ${l.thin ? "thin" : ""}`}
+                    d={a.d}
+                    pathLength={1}
+                    style={{ animationDelay: `${l.delay}ms` }}
+                  />
+                  {!l.thin && (
+                    <circle className="sc-link-dot" r={8}>
+                      <animateMotion dur="0.7s" begin={`${(l.delay + 120) / 1000}s`} fill="freeze" path={a.d} />
+                    </circle>
+                  )}
+                  {l.label && b.links.filter((x) => !x.thin).length <= 14 && (
+                    <text className="sc-link-label" x={a.lx} y={a.ly} textAnchor="middle" style={{ animationDelay: `${l.delay + 300}ms` }}>
+                      {l.label}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+            {b.hub && (
+              <foreignObject x={b.hub.x - 230} y={b.hub.y - 22} width={460} height={44}>
+                <div className="sc-hub">{b.hub.text}</div>
+              </foreignObject>
+            )}
+          </svg>
+        ))}
         {storm && <StormPanel key={storm.id} storm={storm} />}
-        {spotlight && <SpotlightPanel spotlight={spotlight} />}
       </div>
     </div>
   );
@@ -661,34 +695,27 @@ function Metrics({ state }: { state: LiveState | null }) {
   const s = state?.stats;
   const lc = s?.lastCut;
   return (
-    <footer className="sc-foot">
+    <footer className="sc-foot sc-foot2">
       <Metric label="插队次数" value={s?.cuts ?? 0} />
       <Metric label="发出红包" value={s?.packets ?? 0} />
-      <Metric label="已到账" value={s?.toVictim ?? 0} unit="笔" />
-      <Metric label="原路退回" value={s?.refunded ?? 0} unit="笔" />
-      <Metric label="本场链上交易" value={s?.txs ?? "—"} unit="笔" />
-      <Metric label="全场 gas 费（我们代付）" value={s?.feeMon !== undefined ? fmt(s.feeMon, 3) : "—"} unit="MON" />
-      <div className="sc-metric wide">
-        <div className="sc-m-label">最近一次插队</div>
-        {lc ? (
-          <div className="sc-m-row">
+      <Metric label="最近一次上链" value={lc?.chainMs ?? "—"} unit="ms" />
+      <div className="sc-foot-minor">
+        <span>已到账 {s?.toVictim ?? 0} 笔</span>
+        <span>原路退回 {s?.refunded ?? 0} 笔</span>
+        <span>本场链上交易 {s?.txs ?? "—"} 笔</span>
+        <span>gas 费 {s?.feeMon !== undefined ? fmt(s.feeMon, 3) : "—"} MON（我们代付）</span>
+        {lc && (
+          <>
             <span>
-              链上确认 <b className="mono">{lc.chainMs ?? "—"}</b>ms
+              被插的人手机收到 {lc.fanoutMs ?? "—"}ms（{lc.acks} 台已回执）
             </span>
             <span>
-              被插的人收到 <b className="mono">{lc.fanoutMs ?? "—"}</b>ms<small>（{lc.acks} 台被插的手机已回执）</small>
-            </span>
-            <span>
-              gas <b className="mono">{(lc.gasLimit || lc.gasUsed).toLocaleString()}</b> /{" "}
-              <b className="mono">{lc.gasUsed.toLocaleString()}</b>
-              <small> limit/used · Monad 按 gas limit 收费</small>
+              gas limit/used {(lc.gasLimit || lc.gasUsed).toLocaleString()} / {lc.gasUsed.toLocaleString()} · Monad 按 limit 收费
             </span>
             <a className="mono" href={`${EXPLORER}/tx/${lc.txHash}`} target="_blank" rel="noreferrer">
               {lc.txHash.slice(0, 10)}…
             </a>
-          </div>
-        ) : (
-          <div className="dim">还没有人插队</div>
+          </>
         )}
       </div>
     </footer>
@@ -829,22 +856,18 @@ function CutTrace(props: { trace: Trace; lastCut: LiveState["stats"]["lastCut"];
       value: lc?.fanoutMs != null ? `${lc.fanoutMs}ms（${lc.acks} 台已回执）` : "—",
     },
   ];
+  void steps;
   return (
-    <div className={`sc-trace ${props.solo ? "solo" : ""}`}>
-      <div className="sc-trace-steps">
-        {steps.map((st, i) => (
-          <div key={i} className="sc-step" style={{ animationDelay: `${300 + i * 380}ms` }}>
-            <div className="sc-step-dot">{i + 1}</div>
-            <div className="sc-step-label">{st.label}</div>
-            <div className="sc-step-val mono">{st.value}</div>
-          </div>
-        ))}
+    <div className={`sc-trace sc-trace2 ${props.solo ? "solo" : ""}`}>
+      <div className="sc-trace-line">
+        点击 <i>→</i> 上链 <b className="mono">{chain !== null ? `${chain}ms` : "—"}</b> <i>→</i> 终局 <b className="mono">+600ms</b> <i>→</i>{" "}
+        被插的人手机收到 <b className="mono">{lc?.fanoutMs != null ? `${lc.fanoutMs}ms` : "—"}</b>
       </div>
       <div className={`sc-eth ${left <= 0 ? "done" : ""}`}>
         <div className="sc-eth-text">
           {left > 0 ? (
             <>
-              同一笔交易在以太坊（12 秒一个块）：还要等 <b className="mono">{left.toFixed(1)}</b> 秒…
+              同一笔在以太坊：还要等 <b className="mono">{left.toFixed(1)}</b> 秒
             </>
           ) : (
             <>以太坊：现在才进块</>
@@ -858,7 +881,6 @@ function CutTrace(props: { trace: Trace; lastCut: LiveState["stats"]["lastCut"];
   );
 }
 
-// ───────────── E 并发泳道：全场改价 ─────────────
 function StormPanel({ storm }: { storm: Storm }) {
   const blocks = new Set(storm.items.map((x) => x.block)).size;
   return (
