@@ -7,6 +7,7 @@ import "./mobile.css";
 const me = address.toLowerCase();
 const AVATARS = ["🐼", "🦊", "🐯", "🐸", "🐙", "🦄", "🐳", "🐧", "🦁", "🐨", "🐹", "🐰", "🐻", "🐮", "🐷", "🐵", "🦉", "🐲", "🍋", "🍑", "🧋", "🥟", "🌶️", "🍜"];
 const BOT_AVATAR = "🕶️";
+const RANDOM_NAMES = ["靓仔", "靓女", "老细", "阿明", "阿珍", "肥仔", "叉烧", "虾饺", "肠粉", "奶茶", "菠萝包", "煲仔饭"];
 
 export function avatarOf(nick: string, uid: number, isBot = false) {
   if (isBot) return BOT_AVATAR;
@@ -309,7 +310,7 @@ function JoinView(props: {
         <button className="m-avatar" onClick={reroll} aria-label="换头像">
           {avatar}
         </button>
-        <input type="text" maxLength={6} placeholder="你的昵称" value={name} onChange={(e) => setName(e.target.value)} />
+        <input type="text" maxLength={6} placeholder="昵称（不填就随机）" value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       <div className="m-q">你的一位，值多少钱？</div>
       <PriceChips price={price} noYield={noYield} onChange={(p, n) => (setPrice(p), setNoYield(n))} />
@@ -320,8 +321,8 @@ function JoinView(props: {
       </div>
       <button
         className="primary m-cta"
-        disabled={!!props.busy || !name.trim()}
-        onClick={() => props.onJoin(`${avatar}${name.trim()}`, price, noYield)}
+        disabled={!!props.busy}
+        onClick={() => props.onJoin(`${avatar}${name.trim() || RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]}`, price, noYield)}
       >
         {props.busy ? `${props.busy}中…` : `🎟️ 领号排队（现在 ${props.queueLen} 人）`}
       </button>
