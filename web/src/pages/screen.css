@@ -940,3 +940,18 @@ body[data-page="screen"] { background: #55B8ED; color-scheme: light; }
 
 /* 给横幅、时间线和「同一笔交易」胶囊留出空间，不压住队伍 */
 .sc-root .sc-line { padding-top: 132px; }
+
+/* ── 17:40 修正：恢复人物背景板、去掉顶部大空白、底部不重叠 ── */
+.sc-root .sc-stage { padding: 20px 24px 44px; overflow-y: auto; }
+.sc-root .sc-line { padding-top: 34px; }
+.sc-root .sc-card,
+.sc-root .sc-card.bot {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(23, 23, 23, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(23, 23, 23, 0.08);
+}
+.sc-root .sc-side { overflow-y: auto; min-height: 0; }
+.sc-root .sc-main { min-height: 0; }
+.sc-root .sc-foot.sc-foot2 { position: relative; z-index: 5; flex-wrap: wrap; row-gap: 6px; }
+.sc-root .sc-cutstack { top: 164px; }
