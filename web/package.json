@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:preview": "node scripts/build-preview.mjs"
   },
   "dependencies": {
     "qrcode": "^1.5.4",
