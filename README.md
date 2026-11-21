@@ -16,6 +16,7 @@
 | [docs/PRD.md](docs/PRD.md) | 产品规则（定稿）、页面、演示脚本、评委问答 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 技术架构、合约设计、Monad 能力怎么用 |
 | [docs/PITCH.md](docs/PITCH.md) | 产品介绍、Why Monad、怎么做得有趣、三分钟路演 |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | 部署、现场运维、gas 预算 |
 
 ## 已部署（Monad 测试网）
 

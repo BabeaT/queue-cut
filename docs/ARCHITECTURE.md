@@ -73,14 +73,12 @@ struct Entry {                     // 每人 3 个槽，按 uid 连续存（MIP-
     uint96 price; uint96 pendingPrice; uint40 pendingFrom;                                       // 槽 1
     uint96 frozenIn; uint96 frozenOut; uint40 joinedBlock;                                       // 槽 2
 }
-struct Receipt { uint32 cutter; uint32 victim; uint96 amount; uint8 state; }  // 一个槽；0 冻结 1 已付 2 已退
+struct Receipt { uint32 cutter; uint32 victim; uint96 amount; uint8 state; uint32 prevIn; uint32 prevOut; }  // 一个槽
 
 Entry[]   entries;                 // uid → Entry，uid 0 占位
 uint32[]  line;                    // 队列，存 uid，0 = 空位（出队不搬数组）
 uint32    head;                    // 队首下标，叫号时后移
-Receipt[] receipts;                // 只追加
-mapping(uint32 => uint32[]) inRc;  // 被插者 → 收款记录
-mapping(uint32 => uint32[]) outRc; // 插队者 → 付款记录
+Receipt[] receipts;                // 只追加；每条带 prevIn / prevOut 指针，把同一个人的收付串成链表
 mapping(address => uint32)  activeUid;
 mapping(address => uint256) balanceOf;  // 排队币（合约内记账）
 ```
@@ -118,7 +116,7 @@ myEntry(user) / entryOf(uid) / lineLength() / receiptCount()
 
 ### 3.4 结算算法
 
-一个人有了结果（核销 = Served；过号 / 退出 / 收摊 = Gone）时，遍历他的 `inRc` 和 `outRc`：
+一个人有了结果（核销 = Served；过号 / 退出 / 收摊 = Gone）时，沿他的收款链表（lastIn → prevIn）和付款链表（lastOut → prevOut）遍历：
 - 任何一方是 Gone → 退给插队者；
 - 双方都是 Served → 付给被插者；
 - 对方还没结果 → 先不动，等对方有结果时再结算。
@@ -211,7 +209,8 @@ myEntry(user) / entryOf(uid) / lineLength() / receiptCount()
 |---|---|---|
 | 入队（经中继） | 0.8–1.0 秒 | 约 28 万 |
 | 插队越过 7 人（经中继） | 0.87 秒 | 约 85 万 |
-| 插队越过 23 人（经中继，链上） | 0.80 秒 | 约 253 万 |
+| 插队越过 23 人（经中继，链上；收付记录改链表后） | 0.67 秒 | 约 90 万（优化前 253 万） |
+| 插队越过 30 人（经中继，链上） | 1.0 秒 | 约 106 万 |
 | 20 个黄牛同一块入队 12 个 | — | 同块统计实测 |
 | 20 个黄牛一次过号（skipHead） | 一笔交易 | 20 笔原路退回 |
 | 部署两个合约 | — | 约 0.39 MON |
