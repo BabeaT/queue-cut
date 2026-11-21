@@ -113,19 +113,6 @@ export default function Stage() {
         <section className="st-card">
           <h3>🎬 演示</h3>
           <div className="st-btns col">
-            <div className="st-inline">
-              <span>评委守位 聚光灯</span>
-              <input type="number" value={secs} min={5} max={60} onChange={(e) => setSecs(Number(e.target.value))} />
-              <span>秒 · 在队伍里点「🔦」选人</span>
-              <button disabled={!!busy || !state?.spotlight} onClick={() => act("关聚光灯", "spotlightOff")}>
-                关
-              </button>
-            </div>
-            {state?.spotlight && (
-              <div className="st-spot">
-                🔦 {nameOf(state.spotlight.nick)} · 喊让 {state.spotlight.yield} / 喊不让 {state.spotlight.hold}
-              </div>
-            )}
             <button disabled={!!busy} onClick={() => act(state?.reveal ? "关闭黄牛场景" : "打开黄牛场景", "reveal", { on: !state?.reveal })}>
               🕶️ 黄牛场景：{state?.reveal ? "已打开（点击关闭）" : "打开（把只排不买的演示账号标成黄牛）"}
             </button>
@@ -146,9 +133,6 @@ export default function Stage() {
                 <span className="grow">{nameOf(r.nick)}{r.isBot ? " 🤖" : ""}</span>
                 <span className="mono">{r.noYield ? "🧱" : fmt(r.price)}</span>
                 <span className="mono gold">🔒{fmt(r.frozenIn)}</span>
-                <button disabled={!!busy} onClick={() => act(`聚光灯 ${r.nick}`, "spotlight", { uid: r.uid, seconds: secs })}>
-                  🔦
-                </button>
               </div>
             ))}
             {!q.length && <div className="dim">队伍是空的</div>}

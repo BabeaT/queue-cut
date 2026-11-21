@@ -61,35 +61,56 @@ function unlockVoice() {
     /* ignore */
   }
 }
+let zhVoice: SpeechSynthesisVoice | null | undefined;
+function pickVoice() {
+  if (zhVoice !== undefined && zhVoice !== null) return zhVoice;
+  const vs = speechSynthesis.getVoices().filter((v) => /^zh|cmn/i.test(v.lang));
+  if (!vs.length) return (zhVoice = null);
+  // 尽量挑女声：各系统常见的中文女声名字
+  const female = /xiaoxiao|xiaoyi|tingting|ting-ting|meijia|mei-jia|sinji|huihui|yaoyao|female|女/i;
+  const mainland = (v: SpeechSynthesisVoice) => /CN|Hans|cmn/i.test(v.lang);
+  return (zhVoice = vs.find((v) => female.test(v.name) && mainland(v)) ?? vs.find((v) => female.test(v.name)) ?? vs.find(mainland) ?? vs[0]);
+}
 function say(text: string) {
   try {
     if (!("speechSynthesis" in window)) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = "zh-CN";
+    const v = pickVoice();
+    if (v) u.voice = v;
+    u.lang = v?.lang ?? "zh-CN";
     u.rate = 1.05;
-    u.pitch = 1.1;
+    u.pitch = 1.25;
     u.volume = 1;
     speechSynthesis.speak(u);
   } catch {
     /* ignore */
   }
 }
-/** 金币哗啦啦：一串快速的高音「叮」 */
-function coins(n = 9) {
+/** 一枚硬币的金属「叮」：两个不成倍数的高频正弦，快速衰减 */
+function clink(t: number, f: number, vol = 0.22, len = 0.28) {
   if (!audio) return;
-  for (let i = 0; i < n; i++) {
+  for (const [mul, v] of [[1, vol], [1.506, vol * 0.6], [2.31, vol * 0.25]] as const) {
     const o = audio.createOscillator();
     const g = audio.createGain();
-    o.type = "square";
-    o.frequency.value = 1800 + Math.random() * 1600;
-    const t = audio.currentTime + i * 0.055 + Math.random() * 0.02;
+    o.type = "sine";
+    o.frequency.value = f * mul;
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.18, t + 0.005);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    g.gain.exponentialRampToValueAtTime(v, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
     o.connect(g).connect(audio.destination);
     o.start(t);
-    o.stop(t + 0.1);
+    o.stop(t + len + 0.02);
+  }
+}
+/** 撒金币：先一声清脆的拾金币（B5→E6），再一把硬币叮叮当当落下 */
+function coins(n = 9) {
+  if (!audio) return;
+  const t0 = audio.currentTime + 0.01;
+  clink(t0, 1976, 0.25, 0.12);
+  clink(t0 + 0.08, 2637, 0.28, 0.5);
+  for (let i = 0; i < n; i++) {
+    clink(t0 + 0.22 + i * 0.07 + Math.random() * 0.05, 2400 + Math.random() * 2600, 0.1 + Math.random() * 0.1, 0.18 + Math.random() * 0.2);
   }
 }
 function ding(kind: "money" | "call" | "refund" | "cut") {
@@ -98,9 +119,9 @@ function ding(kind: "money" | "call" | "refund" | "cut") {
   } catch {
     /* ignore */
   }
-  if (!audio) return;
+  if (!audio || kind === "money") return;
   const notes =
-    kind === "money" ? [988, 1319, 1568, 2093] : kind === "call" ? [880, 660, 880, 660] : kind === "cut" ? [523, 659, 784, 1047] : [523, 392];
+    (kind as string) === "money" ? [988, 1319, 1568, 2093] : kind === "call" ? [880, 660, 880, 660] : kind === "cut" ? [523, 659, 784, 1047] : [523, 392];
   notes.forEach((f, i) => {
     const o = audio!.createOscillator();
     const g = audio!.createGain();
@@ -162,7 +183,7 @@ export default function Mobile() {
         ackCut(e.cutId);
         ding("money");
         coins(12);
-        say(`链上到账，${fmt(v.amount)}排队币`);
+        say(`Monad 到账，${fmt(v.amount)}排队币${e.chainMs ? `，${e.chainMs}毫秒上链` : ""}`);
         setFlash("money");
         setTimeout(() => setFlash(null), 900);
         setPackets((p) => [
@@ -181,6 +202,7 @@ export default function Mobile() {
       }
       if (e.cutter.user?.toLowerCase() === me) {
         ding("cut");
+        say(`插队成功，已向${e.victims.length}人链上付款`);
         setConfetti((c) => c + 1);
         toast(`插队成功！越过 ${e.victims.length} 人，红包已发出 ${fmt(e.total)}${e.chainMs ? ` · ${e.chainMs}ms 上链` : ""}`, "info");
       }
@@ -189,7 +211,7 @@ export default function Mobile() {
       if (e.victim.user?.toLowerCase() === me && e.toVictim) {
         ding("money");
         coins(8);
-        say(`红包解锁，${fmt(e.amount)}排队币到账`);
+        say(`双方已消费，链上结算，${fmt(e.amount)}排队币到账`);
         toast(`💰 解锁到账 +${fmt(e.amount)}（${nameOf(e.cutter.nick)} 插队的钱）`, "money");
       }
       if (e.victim.user?.toLowerCase() === me && !e.toVictim) toast(`↩ ${fmt(e.amount)} 退回给了 ${nameOf(e.cutter.nick)}（有人没消费）`, "refund");
@@ -286,37 +308,6 @@ export default function Mobile() {
             onLeave={() => run("退出", () => actions.leave())}
           />
         )
-      )}
-
-      {spot && phase !== "join" && (
-        <div className={`m-spot ${spot.user?.toLowerCase() === me ? "me" : ""}`}>
-          {spot.user?.toLowerCase() === me ? (
-            <>
-              <div className="m-spot-title">🔦 全场在看你！有人要插你前面</div>
-              <div className="m-spot-sub">守住就选「不让」；想收红包就挂个价</div>
-              <div className="m-spot-btns">
-                <button className="hold" disabled={!!busy} onClick={() => run("改价", () => actions.setPrice(myRow?.price || 0.5, true))}>
-                  🧱 不让！
-                </button>
-                <button className="yield" disabled={!!busy} onClick={() => run("改价", () => actions.setPrice(Math.max(myRow?.price || 1, 1), false))}>
-                  💰 让，给钱就行
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="m-spot-title">🔦 {nameOf(spot.nick)}：让，还是不让？</div>
-              <div className="m-spot-btns">
-                <button className={`yield ${myVote === "yield" ? "on" : ""}`} onClick={() => cheer("yield")}>
-                  喊「让！」{spot.yield ? ` ${spot.yield}` : ""}
-                </button>
-                <button className={`hold ${myVote === "hold" ? "on" : ""}`} onClick={() => cheer("hold")}>
-                  喊「不让！」{spot.hold ? ` ${spot.hold}` : ""}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
       )}
 
       {packets.length > 0 && (
