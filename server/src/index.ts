@@ -832,6 +832,27 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
   }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** 一批演示账号错峰发交易（公共 RPC 每秒只给 20 次请求），失败自动重试 */
+async function staggered<T>(items: T[], fn: (x: T) => Promise<Hex>, gapMs = 45): Promise<{ ok: Hex[]; errors: string[] }> {
+  const ok: Hex[] = [];
+  const errors: string[] = [];
+  await Promise.all(
+    items.map(async (x, i) => {
+      await sleep(i * gapMs);
+      for (let k = 0; k < 4; k++) {
+        try {
+          ok.push(await fn(x));
+          return;
+        } catch (e) {
+          if (k === 3) errors.push(errMsg(e));
+          else await sleep(350 + Math.random() * 300);
+        }
+      }
+    }),
+  );
+  return { ok, errors };
+}
 const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 const NICK_A = ["🐼", "🦊", "🐯", "🐸", "🐙", "🦄", "🐳", "🐧", "🦁", "🐨", "🐹", "🐰", "🐻", "🐮", "🐷", "🐵", "🦉", "🍋", "🧋", "🥟"];
 const NICK_B = ["阿明", "小红", "大雄", "阿珍", "靓仔", "靓女", "肥仔", "叉烧", "虾饺", "肠粉", "阿强", "小美", "老陈", "阿芳", "细佬", "家姐", "阿杰", "婷婷"];
@@ -927,19 +948,12 @@ async function stageAction(action: string, body: any) {
       await ensureBotsGranted();
       const idle = bots.filter((b) => !isActive(b.account.address));
       const n = Math.min(Number(body.n ?? 20), idle.length);
-      const out: { bot: string; hash?: string; error?: string }[] = [];
-      await Promise.all(
-        idle.slice(0, n).map(async (b) => {
-          const price = body.price ? parseEther(String(body.price)) : parseEther(pick(["0.2", "0.5", "0.5", "0.5", "1", "1"]));
-          const data = encodeFunctionData({ abi: queueCutAbi, functionName: "join", args: [price, false, nickHex(randomNick())] });
-          try {
-            out.push({ bot: b.account.address, hash: await b.submit(QC, data, 330_000n) });
-          } catch (e) {
-            out.push({ bot: b.account.address, error: errMsg(e) });
-          }
-        }),
-      );
-      return { joined: out.filter((o) => o.hash).length, idleLeft: idle.length - n, errors: out.filter((o) => o.error).slice(0, 3) };
+      const r = await staggered(idle.slice(0, n), (b) => {
+        const price = body.price ? parseEther(String(body.price)) : parseEther(pick(["0.2", "0.5", "0.5", "0.5", "1", "1"]));
+        const data = encodeFunctionData({ abi: queueCutAbi, functionName: "join", args: [price, false, nickHex(randomNick())] });
+        return b.submit(QC, data, 330_000n);
+      });
+      return { joined: r.ok.length, idleLeft: idle.length - n, errors: r.errors.slice(0, 3) };
     }
     case "botCut": {
       // 让队尾的演示账号插队（真人就能体验被插队）：插到第 toRank 位
@@ -969,13 +983,15 @@ async function stageAction(action: string, body: any) {
       // 全场改价：所有在队里的演示账号同时各发一笔改价交易（真上链，各写各的存储）
       const prices = ["0.2", "0.3", "0.5", "0.8", "1", "1.5", "2", "3"];
       const inQ = bots.filter((b) => snapshotRows.some((r: any) => String(r.user).toLowerCase() === b.account.address.toLowerCase()));
-      const hashes = await Promise.all(
-        inQ.map((b) => {
+      const r = await staggered(
+        inQ,
+        (b) => {
           const data = encodeFunctionData({ abi: queueCutAbi, functionName: "setPrice", args: [parseEther(pick(prices)), false] });
-          return b.submit(QC, data, 130_000n).catch((e) => "ERR " + errMsg(e));
-        }),
+          return b.submit(QC, data, 130_000n);
+        },
+        25,
       );
-      return { sent: hashes.filter((h) => !String(h).startsWith("ERR")).length, errors: hashes.filter((h) => String(h).startsWith("ERR")).slice(0, 2) };
+      return { sent: r.ok.length, errors: r.errors.slice(0, 2) };
     }
     case "reveal":
       reveal = body.on ?? !reveal;
@@ -1030,6 +1046,14 @@ function serveStatic(p: string, res: http.ServerResponse) {
 // ─────────────────────────── 启动 ───────────────────────────
 
 await bootstrap();
+for (const snd of [owner, ...relayers, ...bots]) {
+  try {
+    snd.nonce = await pub.getTransactionCount({ address: snd.account.address, blockTag: "latest" });
+  } catch {
+    /* 用到时再取 */
+  }
+  await sleep(60);
+}
 startLive();
 setInterval(() => {
   if (snapshotRows.length) scheduleRefresh();
