@@ -164,6 +164,20 @@ export default function Mobile() {
   const [busy, setBusy] = useState<string | null>(null);
   const [myVote, setMyVote] = useState<"yield" | "hold" | null>(null);
   const toastId = useRef(0);
+  // 手机浏览器要求先点一下才允许出声：在页面任何位置点一下就解锁
+  const [soundOn, setSoundOn] = useState(false);
+  useEffect(() => {
+    const on = () => {
+      unlockAudio();
+      setSoundOn(true);
+    };
+    window.addEventListener("pointerdown", on);
+    window.addEventListener("touchend", on);
+    return () => {
+      window.removeEventListener("pointerdown", on);
+      window.removeEventListener("touchend", on);
+    };
+  }, []);
 
   const toast = (text: string, kind: Toast["kind"] = "info", href?: string) => {
     const id = ++toastId.current;
@@ -283,6 +297,7 @@ export default function Mobile() {
         </div>
       </header>
 
+      {!soundOn && state && <div className="m-sound">🔇 点一下屏幕，开启到账声音</div>}
       {!state ? (
         <div className="m-center dim">连接中…</div>
       ) : phase === "join" || phase === "served" || phase === "gone" ? (

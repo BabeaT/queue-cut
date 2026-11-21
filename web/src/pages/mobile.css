@@ -213,3 +213,5 @@ body[data-page="mobile"] { background: #55b8ed; color-scheme: light; }
 @keyframes flash { 0%, 30% { opacity: 1; } 100% { opacity: 0; } }
 
 .m-foot { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 11px; padding: 8px; background: var(--cream); border-top: 3px solid var(--ink); color: #5c5648; font-weight: 600; }
+
+.m-sound { background: var(--yellow); border: 3px solid var(--ink); box-shadow: var(--shadow); border-radius: 6px; padding: 10px 12px; font-weight: 900; text-align: center; margin-bottom: 10px; animation: pulse 1s steps(4) infinite; }
