@@ -37,3 +37,27 @@ body[data-page="stage"] { background: #fff7e8; color-scheme: light; }
 .st-spot { background: #ffd84d; border: 2.5px solid #171717; border-radius: 4px; font-weight: 800; }
 .st-log { color: #5c5648; }
 .st-root a { color: #d92778; }
+
+/* 演示剧本 */
+.ss-top { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.ss-top h3 { margin-right: auto; }
+.ss-top .small { font-size: 12px; }
+.ss-judge select { padding: 6px 8px; border: 2.5px solid #171717; border-radius: 4px; font-weight: 700; background: #fff; max-width: 220px; }
+.ss-body { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 14px; }
+.ss-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.ss-list li { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border: 2px solid #cfc8b6; border-radius: 4px; cursor: pointer; background: #fff; }
+.ss-list li.done { color: #8a8372; background: #f1ead9; }
+.ss-list li.on { border-color: #171717; background: #ffd84d; font-weight: 800; box-shadow: 3px 3px 0 #171717; }
+.ss-no { width: 22px; height: 22px; flex: none; display: grid; place-items: center; border: 2px solid #171717; border-radius: 50%; font-size: 12px; font-weight: 800; background: #fff; }
+.ss-ph { font-size: 11px; color: #5c5648; flex: none; }
+.ss-now { display: flex; flex-direction: column; gap: 10px; }
+.ss-step { font-size: 13px; color: #5c5648; font-weight: 700; }
+.ss-title { font-size: 24px; font-weight: 900; }
+.ss-say { background: #fff; border: 2.5px solid #171717; border-left: 8px solid #f23891; border-radius: 4px; padding: 10px 12px; font-size: 16px; line-height: 1.6; }
+.ss-what { line-height: 1.6; }
+.ss-live { background: #e6f4e6; border: 2px solid #399c3f; border-radius: 4px; padding: 6px 10px; font-size: 13px; }
+.ss-warn { background: #ffe3ef; border: 2px solid #f23891; border-radius: 4px; padding: 6px 10px; font-weight: 700; }
+.st-root button.ss-go { font-size: 22px; padding: 18px 16px; }
+.st-root button.ss-go:disabled, .st-root button:disabled { opacity: 0.45; cursor: not-allowed; }
+.ss-nav { display: flex; gap: 8px; justify-content: space-between; }
+@media (max-width: 760px) { .ss-body { grid-template-columns: 1fr; } .ss-now { order: -1; } .ss-list { max-height: 220px; overflow-y: auto; } }

@@ -1,6 +1,6 @@
 // 手机页：扫码入队、我的号、让位价 / 不让、拆红包、点人插队、评委守位喊话
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLive, useLiveEvents, useBlock, fmt, EXPLORER, sendWs, ackCut, type QueueRow } from "../live.ts";
+import { useLive, useLiveEvents, useBlock, fmt, EXPLORER, sendWs, ackCut, API, type QueueRow } from "../live.ts";
 import { actions, address, getNick, setNick, onboard } from "../wallet.ts";
 import { Character } from "../home/HomePage.tsx";
 import "./mobile.css";
@@ -50,19 +50,11 @@ function unlockAudio() {
 }
 // 语音播报（像「支付宝到账」）：用系统自带的朗读；不支持的环境只有金币声
 let voiceOk = false;
-/** 第一次点击时就说一句欢迎语：既解锁语音（安卓和 iOS 都要求语音由点击触发一次），也让用户确认听得到 */
+/** 第一次点击后说一句欢迎语，让用户确认听得到 */
 function unlockVoice() {
-  try {
-    if (voiceOk || !("speechSynthesis" in window)) return;
-    voiceOk = true;
-    speechSynthesis.getVoices(); // 触发加载语音列表
-    const u = new SpeechSynthesisUtterance("欢迎来到插队红包");
-    u.lang = "zh-CN";
-    u.pitch = 1.25;
-    speechSynthesis.speak(u);
-  } catch {
-    /* ignore */
-  }
+  if (voiceOk) return;
+  voiceOk = true;
+  say("欢迎来到插队红包");
 }
 let zhVoice: SpeechSynthesisVoice | null | undefined;
 function pickVoice() {
@@ -74,25 +66,37 @@ function pickVoice() {
   const mainland = (v: SpeechSynthesisVoice) => /CN|Hans|cmn/i.test(v.lang);
   return (zhVoice = vs.find((v) => female.test(v.name) && mainland(v)) ?? vs.find((v) => female.test(v.name)) ?? vs.find(mainland) ?? vs[0]);
 }
-function say(text: string) {
+/** 播报：先用后端合成的女声音频（和金币声走同一个音频通道，微信里也能响），失败再退回系统朗读 */
+async function say(text: string) {
+  try {
+    if (audio) {
+      const r = await fetch(`${API}/api/tts?t=${encodeURIComponent(text)}`);
+      if (r.ok) {
+        const buf = await audio.decodeAudioData(await r.arrayBuffer());
+        const src = audio.createBufferSource();
+        const g = audio.createGain();
+        g.gain.value = 1.6;
+        src.buffer = buf;
+        src.connect(g).connect(audio.destination);
+        src.start(audio.currentTime + 0.25);
+        return;
+      }
+    }
+  } catch {
+    /* 退回系统朗读 */
+  }
+  sayNative(text);
+}
+function sayNative(text: string) {
   try {
     if (!("speechSynthesis" in window)) return;
-    const speak = () => {
-      const u = new SpeechSynthesisUtterance(text);
-      const v = pickVoice();
-      if (v) u.voice = v;
-      u.lang = "zh-CN";
-      u.rate = 1.05;
-      u.pitch = 1.25;
-      u.volume = 1;
-      speechSynthesis.resume(); // 有的安卓会停在暂停状态
-      speechSynthesis.speak(u);
-    };
-    // 安卓上 cancel 之后立刻 speak 会没声音：正在说才打断，并隔一小会儿再说；同时让金币声先响
-    if (speechSynthesis.speaking || speechSynthesis.pending) {
-      speechSynthesis.cancel();
-      setTimeout(speak, 450);
-    } else setTimeout(speak, 350);
+    const u = new SpeechSynthesisUtterance(text);
+    const v = pickVoice();
+    if (v) u.voice = v;
+    u.lang = "zh-CN";
+    u.pitch = 1.25;
+    speechSynthesis.resume();
+    speechSynthesis.speak(u);
   } catch {
     /* ignore */
   }
@@ -193,7 +197,7 @@ export default function Mobile() {
         ackCut(e.cutId);
         ding("money");
         coins(12);
-        say(`Monad 到账，${fmt(v.amount)}排队币${e.chainMs ? `，${e.chainMs}毫秒上链` : ""}`);
+        say(`Monad 到账，${fmt(v.amount)}排队币${e.chainMs ? `，${Math.round(e.chainMs / 10) * 10}毫秒上链` : ""}`);
         setFlash("money");
         setTimeout(() => setFlash(null), 900);
         setPackets((p) => [

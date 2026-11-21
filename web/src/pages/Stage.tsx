@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useLive, useBlock, fmt, EXPLORER } from "../live.ts";
 import { stage, stageKey } from "../wallet.ts";
 import { avatarOf, nameOf } from "./Mobile.tsx";
+import StageScript from "./StageScript.tsx";
 import "./stage.css";
 
 export default function Stage() {
@@ -54,6 +55,7 @@ export default function Stage() {
       </header>
 
       <div className="st-grid">
+        <StageScript state={state} act={act} busy={busy} />
         <section className="st-card">
           <h3>🧑‍🍳 店员</h3>
           <div className="st-btns">

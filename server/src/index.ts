@@ -733,6 +733,40 @@ function errMsg(e: unknown) {
   return String(m).split("\n")[0].slice(0, 300);
 }
 
+const ttsCache = new Map<string, Promise<Buffer | null>>();
+function ttsAudio(text: string): Promise<Buffer | null> {
+  let p = ttsCache.get(text);
+  if (!p) {
+    p = (async () => {
+      const q = encodeURIComponent(text);
+      const sources = [
+        `https://fanyi.baidu.com/gettts?lan=zh&text=${q}&spd=5&source=web`,
+        `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-CN&client=tw-ob&q=${q}`,
+      ];
+      for (const u of sources) {
+        try {
+          const r = await fetch(u, { headers: { "user-agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(6000) });
+          const ct = r.headers.get("content-type") ?? "";
+          if (!r.ok || !ct.includes("audio")) continue;
+          const b = Buffer.from(await r.arrayBuffer());
+          if (b.length > 2000) return b;
+        } catch {
+          /* 换下一个来源 */
+        }
+      }
+      return null;
+    })();
+    ttsCache.set(text, p);
+    p.then((b) => {
+      if (!b) ttsCache.delete(text);
+    });
+    if (ttsCache.size > 500) ttsCache.delete(ttsCache.keys().next().value!);
+  }
+  return p;
+}
+// 预热常用播报
+for (const t of ["欢迎来到插队红包", "Monad 到账，0.5排队币", "Monad 到账，1排队币", "Monad 到账，0.2排队币"]) ttsAudio(t);
+
 async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
   const url = new URL(req.url ?? "/", "http://x");
   try {
@@ -748,6 +782,16 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
       return send(res, 200, { chainId: monadTestnet.id, queueCut: QC, forwarder: FWD, explorer: "https://testnet.monadvision.com" });
     }
     if (url.pathname === "/api/state") return send(res, 200, buildState());
+
+    // 女声播报：后端合成成 MP3，手机用和金币声同一个音频通道播放（不依赖手机自带朗读）
+    if (url.pathname === "/api/tts") {
+      const text = (url.searchParams.get("t") ?? "").slice(0, 60);
+      if (!text || /[<>{}\\]/.test(text)) return send(res, 400, { error: "bad text" });
+      const buf = await ttsAudio(text);
+      if (!buf) return send(res, 502, { error: "tts unavailable" });
+      res.writeHead(200, { "content-type": "audio/mpeg", "access-control-allow-origin": "*", "cache-control": "public, max-age=86400" });
+      return res.end(buf);
+    }
 
     if (url.pathname === "/api/onboard" && req.method === "POST") {
       const { address } = await readBody(req);
