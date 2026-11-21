@@ -68,12 +68,22 @@ export type RelayResult = {
   totalMs: number;
 };
 
+// 合约地址以后端为准（重新部署后前端不用重新打包）
+let cfg: Promise<{ chainId: number; queueCut: Hex; forwarder: Hex }> | null = null;
+function config() {
+  cfg ??= fetch(API + "/api/config")
+    .then((r) => r.json())
+    .catch(() => ({ chainId: deployment.chainId, queueCut: deployment.queueCut, forwarder: deployment.forwarder }));
+  return cfg;
+}
+
 async function relay(fn: string, args: unknown[]): Promise<RelayResult> {
+  const c = await config();
   const data = encodeFunctionData({ abi: queueCutAbi, functionName: fn as any, args: args as any });
   const prep = await post("/api/prepare", { from: address, data });
   const message = {
     from: address,
-    to: deployment.queueCut as Hex,
+    to: c.queueCut,
     value: 0n,
     gas: BigInt(prep.gas),
     nonce: BigInt(prep.nonce),
@@ -84,8 +94,8 @@ async function relay(fn: string, args: unknown[]): Promise<RelayResult> {
     domain: {
       name: "QueueCutForwarder",
       version: "1",
-      chainId: deployment.chainId,
-      verifyingContract: deployment.forwarder as Hex,
+      chainId: c.chainId,
+      verifyingContract: c.forwarder,
     },
     types: {
       ForwardRequest: [
