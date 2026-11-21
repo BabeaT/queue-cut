@@ -18,6 +18,14 @@
 | [docs/PITCH.md](docs/PITCH.md) | 产品介绍、Why Monad、怎么做得有趣、三分钟路演 |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | 部署、现场运维、gas 预算 |
 
+## 在线体验
+
+| 页面 | 地址 |
+|---|---|
+| 手机端（扫码排队） | https://hongbao.babeat.asia/m |
+| 大屏 | https://hongbao.babeat.asia/screen |
+| 备用地址 | https://chadui-hongbao.vercel.app 、https://q.babeat.asia |
+
 ## 已部署（Monad 测试网）
 
 | 合约 | 地址 |

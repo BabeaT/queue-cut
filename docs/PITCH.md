@@ -102,6 +102,6 @@
 |---|---|
 | 项目名 | 插队红包（代号 queue-cut） |
 | 简介 | 用第一节的三十秒版本 |
-| 演示链接 | 部署后的公网地址（`/m` 手机端，`/screen` 大屏） |
+| 演示链接 | https://hongbao.babeat.asia/screen （大屏），手机端 https://hongbao.babeat.asia/m |
 | GitHub | https://github.com/BabeaT/queue-cut |
 | 截图 | 大屏红包雨、手机到账提醒、黄牛曲线，至少一张 |

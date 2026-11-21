@@ -12,12 +12,26 @@
 
 后端本身也会把 `web/dist` 当静态文件提供，所以**后端地址直接打开 `/m`、`/screen`、`/stage` 也能用**。Vercel 地址作为正式演示链接；如果现场手机打不开 vercel.app，就让观众扫后端地址的二维码。
 
+## 线上地址（2026-11-21 已部署）
+
+| 用途 | 地址 |
+|---|---|
+| 主链接（Vercel，自定义域名） | https://hongbao.babeat.asia （`/m` 手机、`/screen` 大屏、`/stage?key=…` 导演台） |
+| Vercel 默认域名 | https://chadui-hongbao.vercel.app |
+| 后端（Railway） | https://server-production-fbf93d67.up.railway.app ，自定义域名 https://q.babeat.asia （也直接提供页面，可当备用入口） |
+| DNS（阿里云） | `hongbao` CNAME `cname.vercel-dns.com`；`q` CNAME `sxo3jemc.up.railway.app` |
+
+更新前端：`cd web && VITE_API_BASE=https://server-production-fbf93d67.up.railway.app npx vite build`，再把 `dist/` 复制到仓库外的目录（Vercel CLI 不认 `.git` 文件），加上 SPA rewrites 的 `vercel.json` 后执行 `npx vercel deploy --prod --token …`。
+更新后端：Railway 项目 `chadui-hongbao`，服务 `server`；`RAILWAY_TOKEN=<项目 token> npx @railway/cli up --service <id> --detach`（`.railwayignore` 已排除私钥目录）。变量 `KEYS_JSON`、`STAGE_KEY`、`PORT=8787`。
+
 ## 二、合约（Monad 测试网，Chain ID 10143）
 
 | 合约 | 地址 |
 |---|---|
 | QueueCut | `0x0Eede199697d4b5a4E6b95c82858989a5525D35c` |
 | ERC2771Forwarder | `0x5B73b76D850357E2ffc00cbA44Eb58dC96Dcb8EE` |
+
+QueueCut 源码已在 MonadVision（完全匹配）和 Monadscan 验证。
 | 运营账户（owner、店员） | `0xf1dBCaC3F29C2864938A05Dda33C4bB3Bf83241C` |
 
 ## 三、后端启动
