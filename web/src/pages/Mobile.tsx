@@ -50,13 +50,16 @@ function unlockAudio() {
 }
 // 语音播报（像「支付宝到账」）：用系统自带的朗读；不支持的环境只有金币声
 let voiceOk = false;
+/** 第一次点击时就说一句欢迎语：既解锁语音（安卓和 iOS 都要求语音由点击触发一次），也让用户确认听得到 */
 function unlockVoice() {
   try {
     if (voiceOk || !("speechSynthesis" in window)) return;
-    const u = new SpeechSynthesisUtterance(" ");
-    u.volume = 0;
-    speechSynthesis.speak(u);
     voiceOk = true;
+    speechSynthesis.getVoices(); // 触发加载语音列表
+    const u = new SpeechSynthesisUtterance("欢迎来到插队红包");
+    u.lang = "zh-CN";
+    u.pitch = 1.25;
+    speechSynthesis.speak(u);
   } catch {
     /* ignore */
   }
@@ -74,15 +77,22 @@ function pickVoice() {
 function say(text: string) {
   try {
     if (!("speechSynthesis" in window)) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    const v = pickVoice();
-    if (v) u.voice = v;
-    u.lang = v?.lang ?? "zh-CN";
-    u.rate = 1.05;
-    u.pitch = 1.25;
-    u.volume = 1;
-    speechSynthesis.speak(u);
+    const speak = () => {
+      const u = new SpeechSynthesisUtterance(text);
+      const v = pickVoice();
+      if (v) u.voice = v;
+      u.lang = "zh-CN";
+      u.rate = 1.05;
+      u.pitch = 1.25;
+      u.volume = 1;
+      speechSynthesis.resume(); // 有的安卓会停在暂停状态
+      speechSynthesis.speak(u);
+    };
+    // 安卓上 cancel 之后立刻 speak 会没声音：正在说才打断，并隔一小会儿再说；同时让金币声先响
+    if (speechSynthesis.speaking || speechSynthesis.pending) {
+      speechSynthesis.cancel();
+      setTimeout(speak, 450);
+    } else setTimeout(speak, 350);
   } catch {
     /* ignore */
   }
