@@ -71,7 +71,7 @@ body[data-page="mobile"] { background: #55b8ed; color-scheme: light; }
 .m-title em { font-style: normal; color: var(--pink); }
 .m-done { background: var(--yellow); border: 3px solid var(--ink); box-shadow: var(--shadow); padding: 10px 12px; font-weight: 800; border-radius: 4px; }
 .m-hero { position: relative; height: 96px; margin: -6px 0 -10px; }
-.m-hero .qa-character { position: absolute; right: 6px; top: -34px; width: 120px; height: 130px; transform: rotate(-6deg); image-rendering: pixelated; animation: bob 0.6s steps(2) infinite; }
+.m-hero :is(.qa-character, .lp-char) { position: absolute; right: 6px; top: -34px; width: 120px; height: 130px; transform: rotate(-6deg); image-rendering: pixelated; animation: bob 0.6s steps(2) infinite; }
 @keyframes bob { 50% { transform: rotate(-6deg) translateY(-5px); } }
 .m-hero-tag { position: absolute; left: 0; bottom: 18px; font: 9px/1.6 var(--pixel); background: var(--cream); padding: 6px 10px 4px; box-shadow: 3px 3px 0 var(--ink); transform: rotate(-2deg); letter-spacing: 2px; }
 .m-avatar-row { display: flex; gap: 10px; align-items: center; }
@@ -98,7 +98,7 @@ body[data-page="mobile"] { background: #55b8ed; color-scheme: light; }
 .m-ticket-top { display: flex; justify-content: space-between; font: 9px/1 var(--pixel); letter-spacing: 1px; color: #5c5648; }
 .m-ticket-top span:first-child { font: 800 12px/1 system-ui; letter-spacing: 3px; }
 .m-ticket-me { position: absolute; right: 10px; top: 22px; }
-.m-ticket-me .qa-character { width: 92px; height: 100px; image-rendering: pixelated; }
+.m-ticket-me :is(.qa-character, .lp-char) { width: 92px; height: 100px; image-rendering: pixelated; }
 .m-ticket-rank { font-size: 20px; font-weight: 900; margin-top: 8px; }
 .m-ticket-rank b { font: 52px/1.2 var(--pixel); margin: 0 8px; color: var(--pink); text-shadow: 3px 3px 0 var(--ink); }
 .m-ticket-sub { font-size: 13px; font-weight: 700; color: #5c5648; }
@@ -120,9 +120,9 @@ body[data-page="mobile"] { background: #55b8ed; color-scheme: light; }
 .m-person-rank { font: 8px/1 var(--pixel); color: #5c5648; }
 .m-person-av { width: 48px; height: 58px; display: grid; place-items: end center; }
 .m-ava { position: relative; display: inline-block; flex: none; }
-.m-ava .qa-character { width: 46px; height: 56px; image-rendering: pixelated; }
+.m-ava :is(.qa-character, .lp-char) { width: 46px; height: 56px; image-rendering: pixelated; }
 .m-ava i { position: absolute; top: -4px; right: -6px; font-style: normal; font-size: 16px; }
-.m-ava.scalper .qa-character { filter: saturate(0.5); }
+.m-ava.scalper :is(.qa-character, .lp-char) { filter: saturate(0.5); }
 .m-person-tag { font-size: 12px; font-weight: 900; background: var(--pink); color: #fff; border: 2px solid var(--ink); padding: 0 6px; margin-bottom: 2px; }
 .m-person.wall .m-person-tag { background: #5a5a5a; }
 .m-person.blocked { opacity: 0.4; }
@@ -144,7 +144,7 @@ body[data-page="mobile"] { background: #55b8ed; color-scheme: light; }
 .m-root .m-x { padding: 4px 10px; border: 3px solid var(--ink); background: var(--paper); font-weight: 900; }
 .m-sheet-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; max-height: 50vh; padding: 2px 4px 6px 2px; }
 .m-root .m-sheet-item { display: flex; align-items: center; gap: 10px; padding: 4px 10px; background: var(--paper); border: 3px solid #cfc8b6; text-align: left; font-size: 15px; font-weight: 800; width: 100%; }
-.m-sheet-item .m-ava .qa-character { width: 34px; height: 42px; }
+.m-sheet-item .m-ava :is(.qa-character, .lp-char) { width: 34px; height: 42px; }
 .m-root .m-sheet-item.on { border-color: var(--ink); background: #ffe3f0; }
 .m-root .m-sheet-item.target { background: var(--pink); color: #fff; box-shadow: 3px 3px 0 var(--ink); }
 .m-sheet-item.target::after { content: "插到这"; font-size: 11px; background: var(--ink); color: #fff; padding: 2px 6px; margin-left: 6px; }
