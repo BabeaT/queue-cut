@@ -664,7 +664,7 @@ function Metrics({ state }: { state: LiveState | null }) {
               链上确认 <b className="mono">{lc.chainMs ?? "—"}</b>ms
             </span>
             <span>
-              全场到账 <b className="mono">{lc.fanoutMs ?? "—"}</b>ms<small>（{lc.acks} 台手机）</small>
+              被插的人收到 <b className="mono">{lc.fanoutMs ?? "—"}</b>ms<small>（{lc.acks} 台被插的手机已回执）</small>
             </span>
             <span>
               gas <b className="mono">{(lc.gasLimit || lc.gasUsed).toLocaleString()}</b> /{" "}
@@ -813,8 +813,8 @@ function CutTrace(props: { trace: Trace; lastCut: LiveState["stats"]["lastCut"];
     { label: `进入区块 #${c.block}`, value: chain !== null ? `${chain}ms` : "—" },
     { label: "终局", value: "+600ms（2 个块）" },
     {
-      label: "全场手机到账",
-      value: lc?.fanoutMs != null ? `${lc.fanoutMs}ms（${lc.acks} 台）` : "—",
+      label: "被插的人手机收到",
+      value: lc?.fanoutMs != null ? `${lc.fanoutMs}ms（${lc.acks} 台已回执）` : "—",
     },
   ];
   return (

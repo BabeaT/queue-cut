@@ -1,6 +1,6 @@
 // 手机页：扫码入队、我的号、让位价 / 不让、拆红包、点人插队、评委守位喊话
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLive, useLiveEvents, useBlock, fmt, EXPLORER, sendWs, type QueueRow } from "../live.ts";
+import { useLive, useLiveEvents, useBlock, fmt, EXPLORER, sendWs, ackCut, type QueueRow } from "../live.ts";
 import { actions, address, getNick, setNick, onboard } from "../wallet.ts";
 import "./mobile.css";
 
@@ -103,6 +103,7 @@ export default function Mobile() {
     if (e.type === "cut") {
       const v = e.victims.find((x) => x.user?.toLowerCase() === me);
       if (v) {
+        ackCut(e.cutId);
         ding("money");
         setFlash("money");
         setTimeout(() => setFlash(null), 900);

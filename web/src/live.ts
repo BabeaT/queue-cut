@@ -120,6 +120,11 @@ function wsUrl() {
   return `${proto}//${location.host}/ws`;
 }
 
+/** 被插的手机收到红包后回执：后端用它统计「被插的人多久收到」 */
+export function ackCut(cutId: number) {
+  if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "ack", cutId }));
+}
+
 /** 发消息给后端（喊话投票等） */
 export function sendWs(msg: unknown) {
   if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(msg));
@@ -166,10 +171,6 @@ function connect() {
     if (msg.type === "cheers" && current?.spotlight) {
       current = { ...current, spotlight: { ...current.spotlight, yield: msg.yield, hold: msg.hold } };
       stateSubs.forEach((f) => f(current!));
-    }
-    if (msg.type === "cut") {
-      // 回执：后端用它统计「全场到账」延迟
-      socket?.send(JSON.stringify({ type: "ack", cutId: msg.cutId }));
     }
     eventSubs.forEach((f) => f(msg));
   };
