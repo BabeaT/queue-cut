@@ -230,7 +230,6 @@ export default function Mobile() {
       }
       if (e.cutter.user?.toLowerCase() === me) {
         ding("cut");
-        say(`插队成功，已向${e.victims.length}人链上付款`);
         setConfetti((c) => c + 1);
         toast(`插队成功！越过 ${e.victims.length} 人，红包已发出 ${fmt(e.total)}${e.chainMs ? ` · ${e.chainMs}ms 上链` : ""}`, "info");
       }
@@ -239,7 +238,7 @@ export default function Mobile() {
       if (e.victim.user?.toLowerCase() === me && e.toVictim) {
         ding("money");
         coins(8);
-        say(`双方已消费，链上结算，${fmt(e.amount)}排队币到账`);
+        say(`Monad 到账，${fmt(e.amount)}排队币`);
         toast(`💰 解锁到账 +${fmt(e.amount)}（${nameOf(e.cutter.nick)} 插队的钱）`, "money");
       }
       if (e.victim.user?.toLowerCase() === me && !e.toVictim) toast(`↩ ${fmt(e.amount)} 退回给了 ${nameOf(e.cutter.nick)}（有人没消费）`, "refund");
