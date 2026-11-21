@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#55B8ED"><title>插队红包 · Queue Arena · 独立预览</title><style>@font-face {
+  font-family: "Arena Pixel";
+  src: url("./assets/press-start-2p.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+body:has(.qa-home) { margin: 0; background: #FFF7E8; color-scheme: light; }
+.qa-home {
+  --color-sky: #55B8ED;
+  --color-sky-light: #A9DDF7;
+  --color-cream: #FFF7E8;
+  --color-paper: #FFFCF5;
+  --color-ink: #171717;
+  --color-pink: #F23891;
+  --color-pink-dark: #D92778;
+  --color-yellow: #FFD84D;
+  --color-green: #78D34B;
+  --color-success: #399C3F;
+  --color-refund: #6B8FA8;
+  --shadow-md: 4px 4px 0 #171717;
+  --font-display: "Arena Pixel", monospace;
+  --font-body: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  color: var(--color-ink);
+  background: var(--color-cream);
+  font: 16px/1.65 var(--font-body);
+  overflow: clip;
+}
+.qa-home *, .qa-home *::before, .qa-home *::after { box-sizing: border-box; }
+.qa-home h1, .qa-home h2, .qa-home h3, .qa-home p { margin: 0; }
+.qa-home a { color: inherit; text-decoration: none; }
+.qa-home button, .qa-home a, .qa-home summary { -webkit-tap-highlight-color: transparent; }
+.qa-home button { font: inherit; cursor: pointer; }
+.qa-home [hidden] { display: none !important; }
+.qa-home :focus-visible { outline: 3px solid #171717; outline-offset: 5px; }
+.qa-home [id] { scroll-margin-top: 24px; }
+.qa-section-wrap { max-width: 1200px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
+.qa-skip { position: fixed; z-index: 100; left: 16px; top: -100px; padding: 12px; background: white; }
+.qa-skip:focus { top: 12px; }
+.qa-header { min-height: 90px; padding: 16px max(32px, calc((100vw - 1136px) / 2)); display: flex; align-items: center; justify-content: space-between; gap: 24px; background: var(--color-cream); border-bottom: 3px solid var(--color-ink); }
+.qa-brand { display: flex; align-items: center; gap: 12px; font-size: 21px; line-height: 1.15; font-weight: 900; flex-shrink: 0; }
+.qa-brand small { display: block; margin-top: 7px; font: 8px/1.5 var(--font-display); letter-spacing: 1px; }
+.qa-brand-packet { width: 34px; height: 40px; border: 3px solid #171717; background: var(--color-pink); color: var(--color-yellow); display: grid; place-items: center; font-size: 25px; transform: rotate(-9deg); box-shadow: 3px 3px 0 #171717; }
+.qa-header nav { display: flex; align-items: center; gap: 28px; font-size: 15px; font-weight: 700; }
+.qa-header nav a { padding: 9px 0; border-bottom: 2px solid transparent; }
+.qa-header nav a:hover { border-color: var(--color-pink); }
+.qa-button { min-height: 54px; border: 3px solid var(--color-ink); background: var(--color-ink); color: #fff !important; box-shadow: 5px 5px 0 var(--color-pink); display: inline-flex; align-items: center; justify-content: center; gap: 14px; padding: 16px 24px; font-weight: 900; border-radius: 2px; transition: transform 120ms, box-shadow 120ms; }
+.qa-button:hover { transform: translate(2px, 2px); box-shadow: 3px 3px 0 var(--color-pink); }
+.qa-button:active { transform: translate(5px, 5px); box-shadow: none; }
+.qa-header .qa-header-join { min-height: 44px; padding: 9px 22px; background: var(--color-pink); color: #171717 !important; box-shadow: 3px 3px 0 #171717; font-size: 15px; }
+.qa-hero { position: relative; background: var(--color-sky); padding-top: 46px; isolation: isolate; }
+.qa-hero-content { position: relative; z-index: 1; max-width: 1200px; min-height: 390px; margin: auto; padding: 0 32px 28px; display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; gap: 20px; }
+.qa-eyebrow { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 15px; margin-bottom: 10px !important; }
+.qa-checkers { width: 44px; height: 16px; display: inline-block; background: conic-gradient(#171717 25%, #FFFCF5 0 50%, #171717 0 75%, #FFFCF5 0) 0 0/16px 16px; }
+.qa-home h1 { position: relative; width: max-content; max-width: 100%; font-size: clamp(58px, 6.7vw, 88px); font-weight: 1000; line-height: 1.1; letter-spacing: -5px; -webkit-text-stroke: 1.5px #171717; paint-order: stroke fill; filter: drop-shadow(4px 0 0 white) drop-shadow(-4px 0 0 white) drop-shadow(0 4px 0 white) drop-shadow(0 -4px 0 white); }
+.qa-title-spark { display: inline-block; color: var(--color-pink); -webkit-text-stroke: 0; margin-left: 10px; font-style: italic; transform: rotate(12deg); }
+.qa-english { display: inline-block; background: var(--color-cream); font: 14px/1.6 var(--font-display); letter-spacing: 3px; padding: 8px 15px 6px; transform: rotate(-2deg); margin: 18px 0 23px !important; box-shadow: 3px 3px 0 #171717; }
+.qa-hero-tagline { font-size: clamp(18px, 1.7vw, 23px); font-weight: 800; line-height: 1.7; }
+.qa-hero-cta { display: flex; align-items: center; gap: 26px; margin-top: 25px; }
+.qa-hero-cta .qa-button { font: 14px/1.7 var(--font-display); border-color: #fff; outline: 3px solid #171717; }
+.qa-play { display: inline-block; width: 14px; height: 16px; background: white; clip-path: polygon(0 0, 35% 0, 35% 15%, 65% 15%, 65% 30%, 100% 30%, 100% 65%, 65% 65%, 65% 85%, 35% 85%, 35% 100%, 0 100%); }
+.qa-text-link { font-size: 15px; font-weight: 800; border-bottom: 2px solid #171717; padding: 6px 0; }
+.qa-free-note { font-size: 14px; font-weight: 700; margin-top: 21px !important; }
+.qa-mobile-break { display: none; }
+.qa-hero-art { position: relative; height: 330px; }
+.qa-character { display: block; width: 100px; height: 120px; overflow: hidden; flex-shrink: 0; image-rendering: pixelated; }
+.qa-hero-character { position: absolute; width: 245px; height: 290px; left: 65px; top: 35px; transform: rotate(-7deg); }
+.qa-art-sticker { position: absolute; left: 72px; top: 5px; padding: 6px 15px; background: var(--color-yellow); border: 2px solid #171717; font-size: 16px; font-weight: 900; transform: rotate(6deg); box-shadow: 3px 3px 0 #171717; }
+.qa-coin { position: absolute; right: 25px; top: 155px; width: 77px; height: 77px; display: grid; place-items: center; font-size: 50px; line-height: 1; background: var(--color-yellow); border: 5px solid #171717; box-shadow: inset 0 0 0 5px #EBA522, 5px 5px 0 white; color: #FFF7E8; text-shadow: 2px 2px 0 #9F6108; border-radius: 25%; transform: rotate(12deg); }
+.qa-spark { position: absolute; font-size: 50px; color: var(--color-yellow); -webkit-text-stroke: 2px #171717; }
+.qa-spark-one { right: 5px; top: 70px; }.qa-spark-two { left: 54px; bottom: 15px; font-size: 36px; }
+.qa-pixel-plus { position: absolute; top: 85px; left: 12px; font: 50px var(--font-display); color: white; }
+.qa-speed { position: absolute; width: 65px; height: 6px; left: 3px; top: 190px; background: #171717; box-shadow: -15px 22px 0 #171717; }
+.qa-speed-two { top: 250px; width: 35px; left: 15px; box-shadow: none; }
+.qa-cloud { position: absolute; z-index: -1; background: #fff; opacity: .75; width: 90px; height: 24px; box-shadow: 15px -15px 0 #fff, 40px -28px 0 #fff, 65px -12px 0 #fff, 90px 2px 0 #fff; }
+.qa-cloud-one { top: 90px; left: -45px; transform: scale(2); opacity: .45; }
+.qa-cloud-two { top: 85px; right: 6%; transform: scale(1.4); }
+.qa-cloud-three { top: 320px; left: 44%; opacity: .4; transform: scale(.8); }
+.qa-scene { position: relative; z-index: 1; max-width: 1136px; margin: 5px auto 0; padding: 12px 24px 16px; border: 3px solid #171717; border-bottom: none; background: var(--color-paper); box-shadow: 7px -7px 0 rgba(255,255,255,.5); }
+.qa-scene-meta { display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 13px; }
+.qa-demo-label { display: inline-block; background: #171717; color: white; padding: 3px 9px; font-weight: 700; }
+.qa-scene-hint { font-weight: 700; }
+.qa-scene-world { position: relative; height: 205px; padding: 10px 0 25px; }
+.qa-shop-sign { position: absolute; left: 0; top: 44px; width: 105px; background: var(--color-yellow); border: 3px solid #171717; box-shadow: 4px 4px 0 #171717; text-align: center; transform: rotate(-4deg); z-index: 2; }
+.qa-shop-sign > span:first-child { display: block; font: 9px/2 var(--font-display); padding-top: 6px; }
+.qa-shop-sign strong { display: block; font-size: 21px; line-height: 1.4; }
+.qa-shop-sign .qa-checkers { width: 100%; height: 10px; display: block; margin-top: 8px; }
+.qa-shop-sign::after { content: ""; position: absolute; width: 9px; height: 53px; background: #C69452; border: 2px solid #171717; top: 100%; left: 45px; z-index: -1; }
+.qa-members { position: absolute; left: 13%; bottom: 24px; width: 60%; display: flex; justify-content: space-around; align-items: flex-end; gap: 8px; }
+.qa-member { position: relative; display: flex; flex-direction: column; align-items: center; }
+.qa-member .qa-character { width: 108px; height: 126px; }
+.qa-price-tag { white-space: nowrap; display: flex; align-items: baseline; gap: 5px; font-size: 13px; line-height: 1.5; }
+.qa-price-tag b { font-size: 16px; }.qa-price-tag small { font-size: 12px; }
+.qa-wall-label { position: absolute; top: -16px; padding: 2px 8px; border: 2px solid #171717; background: #E9E5DB; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.qa-packet { position: absolute; z-index: 4; left: 50%; top: -13px; transform: translate(-50%, 8px); opacity: 0; white-space: nowrap; background: var(--color-pink); color: #fff; padding: 3px 8px; font-size: 12px; border: 2px solid #171717; box-shadow: 2px 2px 0 #171717; transition: transform 300ms, opacity 200ms; }
+.qa-scene-runner { position: absolute; right: 8%; bottom: 29px; transition: transform 600ms steps(8); }
+.qa-scene-runner .qa-character { width: 128px; height: 148px; }
+.qa-speech { position: absolute; top: -7px; left: -31px; padding: 5px 10px; border: 2px solid #171717; background: var(--color-yellow); font-weight: 900; font-size: 13px; white-space: nowrap; transform: rotate(-5deg); }
+.qa-running-trail { position: absolute; left: -8px; top: 68px; width: 20px; height: 3px; background: #171717; box-shadow: -8px 12px 0 #171717; }
+.qa-finish-flag { position: absolute; right: 9px; bottom: 22px; height: 85px; width: 7px; background: #171717; }
+.qa-finish-flag span { position: absolute; top: 0; right: 0; width: 52px; height: 36px; border: 3px solid #171717; background: conic-gradient(#171717 25%, #FFFCF5 0 50%, #171717 0 75%, #FFFCF5 0) 0 0/16px 16px; }
+.qa-road { position: absolute; bottom: 17px; left: -24px; right: -24px; height: 5px; background: #171717; }
+.qa-scene-controls { min-height: 41px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.qa-scene-controls p { font-size: 13px; max-width: 70%; }
+.qa-demo-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.qa-small-button { border: 2px solid #171717; background: var(--color-pink); color: #171717; border-radius: 2px; padding: 8px 14px; min-height: 42px; font-size: 13px !important; font-weight: 800 !important; box-shadow: 2px 2px 0 #171717; }
+.qa-small-button:active { transform: translate(2px,2px); box-shadow: none; }
+.qa-small-secondary { background: var(--color-cream); }
+.qa-scene[data-mode="cut"] .qa-packet, .qa-scene[data-mode="settled"] .qa-packet, .qa-scene[data-mode="refunded"] .qa-packet { opacity: 1; transform: translate(-50%, -7px); }
+.qa-scene[data-mode="settled"] .qa-packet { background: var(--color-success); }
+.qa-scene[data-mode="refunded"] .qa-packet { background: var(--color-refund); }
+.qa-scene[data-mode="cut"] .qa-scene-runner, .qa-scene[data-mode="settled"] .qa-scene-runner, .qa-scene[data-mode="refunded"] .qa-scene-runner { transform: translateX(-145px); }
+.qa-sky-edge { height: 24px; background: #171717; clip-path: polygon(0 0, 4% 0, 4% 40%, 12% 40%, 12% 100%, 88% 100%, 88% 40%, 96% 40%, 96% 0, 100% 0, 100% 100%, 0 100%); }
+.qa-manifesto { position: relative; background: #171717; color: var(--color-cream); }
+.qa-manifesto-inner { min-height: 230px; display: flex; align-items: center; gap: 65px; padding-top: 32px; padding-bottom: 38px; position: relative; }
+.qa-manifesto h2 { font-size: 40px; line-height: 1.3; font-weight: 900; flex-shrink: 0; letter-spacing: 1px; }
+.qa-manifesto h2 em { font-style: normal; color: var(--color-pink); }
+.qa-manifesto-copy { border-left: 2px solid var(--color-cream); padding-left: 45px; }
+.qa-manifesto-copy p:first-child { font-size: 22px; font-weight: 800; line-height: 1.6; margin-bottom: 12px; }
+.qa-manifesto-copy p:last-child { color: #E7DCCB; font-size: 15px; }
+.qa-manifesto-spark { color: var(--color-yellow); font-size: 75px; margin-left: auto; transform: rotate(12deg); }
+.qa-how { padding-top: 65px; padding-bottom: 45px; }
+.qa-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 30px; }
+.qa-kicker { font: 9px/1.9 var(--font-display); letter-spacing: 1px; margin-bottom: 12px !important; }
+.qa-home h2 { font-weight: 900; }.qa-section-heading h2 { font-size: 30px; line-height: 1.4; }
+.qa-heading-note { font-size: 14px; padding-bottom: 5px; border-bottom: 3px solid var(--color-pink); }
+.qa-step-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.qa-step-card { position: relative; border: 2px solid #171717; background: var(--color-paper); box-shadow: var(--shadow-md); padding: 28px 24px 22px; }
+.qa-step-icon { display: inline-grid; place-items: center; min-width: 70px; height: 50px; border: 3px solid #171717; margin-bottom: 24px; font: 12px var(--font-display); transform: rotate(-7deg); background: var(--color-yellow); box-shadow: 3px 3px 0 #171717; }
+.qa-price-icon { background: var(--color-pink); transform: rotate(5deg); }.qa-settle-icon { background: var(--color-green); font: 900 32px var(--font-body); }
+.qa-step-card h3 { font-size: 22px; margin-bottom: 12px; }
+.qa-step-card p { font-size: 15px; line-height: 1.9; }
+.qa-step-note { display: block; margin-top: 22px; border-top: 1px dashed #B4A998; padding-top: 13px; font-size: 13px; color: #62594C; }
+.qa-rules { padding-top: 32px; padding-bottom: 65px; }
+.qa-rule-seal { background: var(--color-yellow); border: 2px solid #171717; padding: 8px 18px; font-weight: 900; line-height: 1.5; transform: rotate(5deg); box-shadow: 3px 3px 0 #171717; font-size: 15px; }
+.qa-faq-list { border-top: 2px solid #171717; }
+.qa-faq-list details { border-bottom: 2px solid #171717; }
+.qa-faq-list summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 20px 4px; font-size: 17px; font-weight: 800; list-style: none; gap: 20px; }
+.qa-faq-list summary::-webkit-details-marker { display: none; }
+.qa-faq-list summary span { font-family: monospace; font-size: 27px; line-height: 1; flex-shrink: 0; }
+.qa-faq-list details[open] summary span { transform: rotate(45deg); }
+.qa-faq-list details > p { padding: 0 50px 22px 4px; line-height: 1.9; color: #514D45; max-width: 1000px; }
+.qa-bottom-cta { position: relative; background: #F3E9D4; padding-top: 44px; border-top: 2px solid #171717; }
+.qa-bottom-inner { display: flex; align-items: center; gap: 35px; padding-bottom: 52px; }
+.qa-bottom-inner h2 { font-size: 28px; line-height: 1.5; margin-bottom: 8px; }.qa-bottom-inner p:last-child { font-size: 13px; }
+.qa-bottom-inner .qa-button { margin-left: auto; white-space: nowrap; }
+.qa-pixel-monitor { display: grid; place-items: center; width: 100px; height: 88px; background: #D6D1C4; border: 4px solid #171717; box-shadow: 7px 7px 0 #171717; position: relative; flex-shrink: 0; }
+.qa-pixel-monitor::after { content: ""; position: absolute; bottom: -18px; width: 80px; height: 10px; border: 3px solid #171717; background: #C4C0B4; }
+.qa-pixel-monitor span { width: 76px; height: 61px; display: grid; place-content: center; text-align: center; background: #171717; color: var(--color-green); font: 18px/1.3 monospace; }
+.qa-grass { height: 24px; border-top: 4px solid #171717; border-bottom: 4px solid #171717; background: repeating-linear-gradient(90deg,#78D34B 0 30px,#ADD84E 30px 54px,#399C3F 54px 66px); clip-path: polygon(0 0, 8% 0, 8% 25%, 13% 25%, 13% 0, 27% 0, 27% 25%, 35% 25%, 35% 0, 70% 0, 70% 25%, 78% 25%, 78% 0, 94% 0, 94% 25%, 100% 25%, 100% 100%, 0 100%); }
+.qa-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 25px max(32px,calc((100vw - 1136px) / 2)); background: #171717; color: var(--color-cream); font-size: 12px; }
+.qa-footer > a:first-child { font-weight: 900; font-size: 16px; }.qa-footer > a:first-child span { display: block; margin-top: 6px; font: 7px/1.5 var(--font-display); }.qa-footer > a:last-child { text-decoration: underline; text-underline-offset: 4px; }
+.qa-preview-dialog { border: 3px solid #171717; padding: 0; width: min(520px,calc(100% - 32px)); max-height: calc(100dvh - 32px); background: var(--color-paper); color: #171717; box-shadow: 7px 7px 0 var(--color-pink); margin: auto; }
+.qa-preview-dialog::backdrop { background: rgba(23,23,23,.65); }
+.qa-dialog-inner { padding: 30px; }.qa-dialog-inner h2 { font-size: 25px; margin-bottom: 18px; line-height: 1.5; }.qa-dialog-inner p { margin-bottom: 18px; }.qa-dialog-inner .qa-button { width: 100%; }.qa-preview-address { font-size: 14px; }.qa-preview-address a { text-decoration: underline; overflow-wrap: anywhere; }
+
+@media (min-width: 1440px) { .qa-hero { padding-top: 55px; }.qa-hero-content { min-height: 420px; } }
+@media (max-width: 1023px) {
+  .qa-header { gap: 16px; padding: 16px 24px; }.qa-header nav { gap: 18px; font-size: 14px; }.qa-brand { font-size: 18px; }
+  .qa-hero-content { padding-left: 24px; padding-right: 24px; grid-template-columns: 1.2fr .9fr; }
+  .qa-hero-character { left: 0; width: 220px; height: 265px; }.qa-art-sticker { left: 0; }.qa-coin { right: 0; width: 60px; height: 60px; font-size: 37px; }.qa-pixel-plus { display: none; }
+  .qa-hero-cta { gap: 20px; }.qa-hero-cta .qa-button { font-size: 11px; padding: 15px 20px; }.qa-text-link { font-size: 14px; }
+  .qa-free-note { font-size: 12px; }.qa-scene { margin-left: 24px; margin-right: 24px; }
+  .qa-scene-world { height: 190px; }.qa-members { left: 14%; width: 65%; }.qa-member .qa-character { width: 85px; height: 105px; }
+  .qa-scene-runner { right: 4%; }.qa-scene-runner .qa-character { width: 105px; height: 127px; }.qa-finish-flag { display: none; }.qa-price-tag { gap: 3px; font-size: 12px; }.qa-price-tag small { display: none; }
+  .qa-shop-sign { width: 80px; }.qa-shop-sign strong { font-size: 18px; }.qa-shop-sign::after { left: 35px; }
+  .qa-manifesto-inner { gap: 35px; }.qa-manifesto h2 { font-size: 34px; }.qa-manifesto-copy { padding-left: 30px; }.qa-manifesto-spark { display: none; }
+  .qa-step-grid { gap: 18px; }.qa-step-card { padding: 24px 18px 20px; }.qa-step-card h3 { font-size: 20px; }.qa-step-card p { font-size: 14px; }.qa-step-card p br { display: none; }
+  .qa-bottom-inner { gap: 25px; }.qa-bottom-inner h2 { font-size: 23px; }.qa-bottom-inner .qa-button { padding: 14px 18px; }
+}
+@media (max-width: 767px) {
+  .qa-section-wrap { padding-left: 20px; padding-right: 20px; }
+  .qa-header { min-height: 76px; padding: 14px 20px; flex-wrap: wrap; gap: 16px; }.qa-brand { font-size: 18px; }.qa-brand small { font-size: 7px; }.qa-brand-packet { width: 28px; height: 34px; font-size: 22px; }
+  .qa-header nav { order: 3; width: 100%; justify-content: space-between; gap: 8px; border-top: 1px solid #D7CFBD; padding-top: 6px; }.qa-header nav a { font-size: 13px; padding-bottom: 0; }.qa-header .qa-header-join { margin-left: auto; padding: 8px 13px; font-size: 14px; }
+  .qa-hero { padding-top: 30px; }.qa-hero-content { display: flex; flex-direction: column; padding: 0 20px; gap: 0; }.qa-hero-copy { text-align: center; width: 100%; }.qa-eyebrow { justify-content: center; font-size: 13px; margin-bottom: 16px !important; }
+  .qa-home h1 { font-size: clamp(52px, 13vw, 75px); margin: auto; letter-spacing: -3px; -webkit-text-stroke-width: 1px; }.qa-title-spark { margin-left: 4px; }
+  .qa-english { font-size: 10px; letter-spacing: 2px; margin: 17px 0 20px !important; }.qa-hero-tagline { font-size: 19px; }.qa-mobile-break { display: block; }
+  .qa-hero-cta { flex-direction: column; gap: 15px; margin-top: 24px; }.qa-hero-cta .qa-button { width: min(300px, 95%); min-height: 57px; font-size: 13px; }.qa-free-note { font-size: 12px; margin-top: 18px !important; }
+  .qa-hero-art { width: 310px; height: 230px; }.qa-hero-character { width: 170px; height: 205px; top: 20px; left: 65px; }.qa-art-sticker { left: 42px; top: 20px; font-size: 12px; padding: 3px 10px; z-index: 2; }.qa-coin { right: 16px; top: 100px; width: 49px; height: 49px; font-size: 28px; border-width: 4px; }.qa-spark-one { right: 8px; top: 32px; font-size: 34px; }.qa-spark-two { bottom: 14px; left: 35px; font-size: 28px; }.qa-speed { top: 115px; left: 21px; width: 37px; height: 4px; box-shadow: -8px 16px 0 #171717; }.qa-speed-two { top: 160px; width: 22px; box-shadow: none; }
+  .qa-cloud-one { top: 190px; transform: scale(1.2); }.qa-cloud-two { top: 400px; right: -50px; }.qa-cloud-three { display: none; }
+  .qa-scene { margin: 0 16px; padding: 10px 12px 15px; box-shadow: 4px -4px 0 rgba(255,255,255,.5); }.qa-scene-hint { display: none; }.qa-demo-label { font-size: 12px; }
+  .qa-scene-world { height: 260px; }.qa-shop-sign { top: 75px; width: 60px; }.qa-shop-sign > span:first-child { font-size: 6px; }.qa-shop-sign strong { font-size: 14px; }.qa-shop-sign::after { left: 24px; height: 88px; }.qa-shop-sign .qa-checkers { height: 7px; }
+  .qa-members { left: 20%; width: 77%; bottom: 26px; gap: 0; }.qa-member .qa-character { width: 62px; height: 83px; }.qa-member-wall { display: none; }.qa-price-tag { flex-wrap: wrap; justify-content: center; gap: 0 4px; max-width: 62px; font-size: 12px; }.qa-price-tag b { font-size: 13px; }.qa-price-tag small { display: block; font-size: 10px; flex-basis: 100%; text-align: center; }
+  .qa-scene-runner { right: 9%; top: 10px; bottom: auto; }.qa-scene-runner .qa-character { width: 78px; height: 94px; }.qa-speech { top: 2px; left: -65px; font-size: 10px; padding: 2px 5px; }.qa-running-trail { top: 45px; width: 13px; }
+  .qa-packet { top: -19px; font-size: 10px; padding: 2px 3px; }.qa-road { left: -12px; right: -12px; bottom: 17px; height: 4px; }
+  .qa-scene-controls { flex-direction: column; align-items: stretch; gap: 12px; }.qa-scene-controls p { max-width: none; font-size: 12px; min-height: 40px; }.qa-demo-actions { justify-content: center; }.qa-small-button { flex: 1; min-height: 44px; }
+  .qa-scene[data-mode="cut"] .qa-scene-runner, .qa-scene[data-mode="settled"] .qa-scene-runner, .qa-scene[data-mode="refunded"] .qa-scene-runner { transform: translateX(-95px); }
+  .qa-sky-edge { height: 17px; }.qa-manifesto-inner { min-height: 0; flex-direction: column; align-items: flex-start; gap: 22px; padding-top: 33px; padding-bottom: 35px; }.qa-manifesto h2 { font-size: 31px; }.qa-manifesto h2 br { display: none; }.qa-manifesto h2 em { margin-left: 6px; }.qa-manifesto-copy { padding-left: 17px; }.qa-manifesto-copy p:first-child { font-size: 19px; }.qa-manifesto-copy p:last-child { font-size: 14px; }.qa-manifesto-copy p:last-child br { display: none; }
+  .qa-how { padding-top: 40px; padding-bottom: 25px; }.qa-section-heading { gap: 16px; margin-bottom: 23px; }.qa-section-heading h2 { font-size: 25px; }.qa-heading-note { display: none; }.qa-kicker { font-size: 8px; }
+  .qa-step-grid { grid-template-columns: 1fr; gap: 20px; }.qa-step-card { padding: 22px; display: grid; grid-template-columns: 67px 1fr; column-gap: 20px; }.qa-step-icon { grid-column: 1; grid-row: 1 / 3; min-width: 60px; margin: 5px 0 0; height: 47px; font-size: 10px; }.qa-settle-icon { font-size: 27px; }.qa-step-card h3 { grid-column: 2; font-size: 20px; margin-bottom: 8px; }.qa-step-card p { grid-column: 2; font-size: 14px; }.qa-step-note { grid-column: 1 / -1; margin-top: 16px; padding-top: 10px; font-size: 12px; }
+  .qa-rules { padding-top: 24px; padding-bottom: 40px; }.qa-rule-seal { font-size: 12px; padding: 6px 9px; flex-shrink: 0; }.qa-faq-list summary { font-size: 16px; padding: 18px 2px; }.qa-faq-list details > p { padding-right: 20px; font-size: 14px; }
+  .qa-bottom-cta { padding-top: 30px; }.qa-bottom-inner { display: grid; grid-template-columns: 65px 1fr; gap: 25px 22px; padding-bottom: 36px; }.qa-pixel-monitor { width: 62px; height: 61px; box-shadow: 4px 4px 0 #171717; }.qa-pixel-monitor span { width: 44px; height: 40px; font-size: 14px; }.qa-pixel-monitor::after { width: 50px; bottom: -13px; height: 8px; border-width: 2px; }.qa-bottom-inner h2 { font-size: 21px; }.qa-bottom-inner .qa-kicker { font-size: 7px; letter-spacing: 0; }.qa-bottom-inner p:last-child { font-size: 11px; }.qa-bottom-inner .qa-button { grid-column: 1 / -1; width: 100%; margin: 0; }
+  .qa-footer { padding: 25px 20px; flex-wrap: wrap; gap: 16px; }.qa-footer > p { order: 3; width: 100%; font-size: 11px; }.qa-footer > a:last-child { margin-left: auto; }
+  .qa-dialog-inner { padding: 24px; }.qa-dialog-inner h2 { font-size: 22px; }
+}
+@media (max-width: 389px) {
+  .qa-section-wrap { padding-left: 16px; padding-right: 16px; }.qa-header { padding-left: 16px; padding-right: 16px; }.qa-home h1 { font-size: 49px; }.qa-hero-tagline { font-size: 18px; }.qa-free-note { font-size: 11px; }.qa-hero-art { height: 210px; }.qa-scene-world { height: 250px; }.qa-member .qa-character { width: 56px; height: 77px; }.qa-step-card { padding: 20px 16px; column-gap: 14px; }.qa-section-heading h2 { font-size: 23px; }.qa-bottom-inner h2 { font-size: 19px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qa-home *, .qa-home *::before, .qa-home *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+</style></head><body><div class="qa-home" id="top"><a class="qa-skip" href="#main-content">跳到主要内容</a><header class="qa-header"><a class="qa-brand" href="#top" aria-label="插队红包首页"><span class="qa-brand-packet" aria-hidden="true">¥</span><span>插队红包<small>QUEUE ARENA</small></span></a><nav aria-label="主导航"><a href="#how-it-works">玩法说明</a><a href="#rules">队列规则</a><a href="#guide">操作指南</a><a href="#about">关于项目</a></nav><a class="qa-button  qa-header-join" href="/m" data-join="true">免费入队</a></header><main id="main-content"><section class="qa-hero" aria-labelledby="hero-title"><div class="qa-cloud qa-cloud-one" aria-hidden="true"></div><div class="qa-cloud qa-cloud-two" aria-hidden="true"></div><div class="qa-cloud qa-cloud-three" aria-hidden="true"></div><div class="qa-hero-content"><div class="qa-hero-copy"><p class="qa-eyebrow"><span class="qa-checkers"></span> 让排队时间有价</p><h1 id="hero-title">插队红包<span class="qa-title-spark" aria-hidden="true">!</span></h1><p class="qa-english">QUEUE ARENA</p><p class="qa-hero-tagline">想快一点，<br class="qa-mobile-break"/>就给被越过的人一份补偿。</p><div class="qa-hero-cta"><a class="qa-button  " href="/m" data-join="true"><span class="qa-play" aria-hidden="true"></span> PRESS START</a><a class="qa-text-link" href="#how-it-works">看看怎么玩 <span aria-hidden="true">↓</span></a></div><p class="qa-free-note">免费入队 · 自主报价 · 公开插队 · 消费后结算</p></div><div class="qa-hero-art" aria-hidden="true"><span class="qa-art-sticker">我的时间，我来定价。</span><span class="qa-speed qa-speed-one"></span><span class="qa-speed qa-speed-two"></span><svg aria-hidden="true" focusable="false" class="qa-character qa-hero-character" viewBox="20 145 490 480" width="490" height="480" preserveAspectRatio="xMidYMax meet"><defs><clipPath id=":R98b:"><rect x="20" y="145" width="490" height="480"></rect></clipPath></defs><image href="./assets/queue-characters.png" width="2172" height="724" clip-path="url(#:R98b:)"></image></svg><span class="qa-coin">★</span><span class="qa-spark qa-spark-one">✦</span><span class="qa-spark qa-spark-two">✦</span><span class="qa-pixel-plus">+</span></div></div><section class="qa-scene" aria-label="排队与逐人补偿机制演示" data-scene="true" data-mode="idle"><div class="qa-scene-meta"><span class="qa-demo-label">机制演示 · 模拟队列</span><span class="qa-scene-hint">让每一次向前，都有补偿去向。</span></div><div class="qa-scene-world"><div class="qa-shop-sign"><span>QUEUE</span><strong>排队中</strong><span class="qa-checkers"></span></div><div class="qa-members"><div class="qa-member"><span class="qa-packet" data-packet="true">待结算 +0.5</span><svg aria-hidden="true" focusable="false" class="qa-character " viewBox="510 140 350 490" width="350" height="490" preserveAspectRatio="xMidYMax meet"><defs><clipPath id=":Rilab:"><rect x="510" y="140" width="350" height="490"></rect></clipPath></defs><image href="./assets/queue-characters.png" width="2172" height="724" clip-path="url(#:Rilab:)"></image></svg><span class="qa-price-tag">小桃 <b>0.5</b><small>排队币</small></span></div><div class="qa-member"><span class="qa-packet" data-packet="true">待结算 +0.5</span><svg aria-hidden="true" focusable="false" class="qa-character " viewBox="935 130 330 500" width="330" height="500" preserveAspectRatio="xMidYMax meet"><defs><clipPath id=":Rklab:"><rect x="935" y="130" width="330" height="500"></rect></clipPath></defs><image href="./assets/queue-characters.png" width="2172" height="724" clip-path="url(#:Rklab:)"></image></svg><span class="qa-price-tag">阿明 <b>0.5</b><small>排队币</small></span></div><div class="qa-member"><span class="qa-packet" data-packet="true">待结算 +0.5</span><svg aria-hidden="true" focusable="false" class="qa-character " viewBox="1345 135 345 495" width="345" height="495" preserveAspectRatio="xMidYMax meet"><defs><clipPath id=":Rmlab:"><rect x="1345" y="135" width="345" height="495"></rect></clipPath></defs><image href="./assets/queue-characters.png" width="2172" height="724" clip-path="url(#:Rmlab:)"></image></svg><span class="qa-price-tag">小绿 <b>0.5</b><small>排队币</small></span></div><div class="qa-member qa-member-wall"><span class="qa-wall-label">我不让位</span><svg aria-hidden="true" focusable="false" class="qa-character " viewBox="1760 115 370 520" width="370" height="520" preserveAspectRatio="xMidYMax meet"><defs><clipPath id=":R55ab:"><rect x="1760" y="115" width="370" height="520"></rect></clipPath></defs><image href="./assets/queue-characters.png" width="2172" height="724" clip-path="url(#:R55ab:)"></image></svg><span class="qa-price-tag">小紫 <b>不让</b></span></div></div><div class="qa-scene-runner"><span class="qa-speech">想快一点？逐人补偿！</span><svg aria-hidden="true" focusable="false" class="qa-character " viewBox="20 145 490 480" width="490" height="480" preserveAspectRatio="xMidYMax meet"><defs><clipPath id=":R17ab:"><rect x="20" y="145" width="490" height="480"></rect></clipPath></defs><image href="./assets/queue-characters.png" width="2172" height="724" clip-path="url(#:R17ab:)"></image></svg><span class="qa-running-trail"></span></div><div class="qa-finish-flag" aria-hidden="true"><span></span></div><div class="qa-road" aria-hidden="true"></div></div><div class="qa-scene-controls"><p role="status" aria-live="polite" data-demo-status="true">示例：越过 3 人，各付 0.5，合计 1.5 排队币。</p><div class="qa-demo-actions"><button class="qa-small-button" type="button" data-demo-cut="true">演示插队</button><button class="qa-small-button" type="button" data-demo-settle="true" hidden="">双方消费</button><button class="qa-small-button qa-small-secondary" type="button" data-demo-refund="true" hidden="">一方未消费</button><button class="qa-small-button qa-small-secondary" type="button" data-demo-reset="true" hidden="">重新演示</button></div></div></section><div class="qa-sky-edge" aria-hidden="true"></div></section><section class="qa-manifesto" id="how-it-works" aria-labelledby="manifesto-title"><div class="qa-section-wrap qa-manifesto-inner"><h2 id="manifesto-title">给排队时间<br/><em>定个价格。</em></h2><div class="qa-manifesto-copy"><p>有人想向前一步，<br/>就向被越过的每一个人支付补偿。</p><p>愿意让位，价格自己定。想守住位置，就选择“不让”。<br/>每笔补偿先冻结，双方完成消费后独立结算。</p></div><span class="qa-manifesto-spark" aria-hidden="true">✦</span></div></section><section class="qa-how qa-section-wrap" id="guide" aria-labelledby="guide-title"><div class="qa-section-heading"><div><p class="qa-kicker">HOW TO PLAY</p><h2 id="guide-title">三步，玩转插队红包。</h2></div><span class="qa-heading-note">把选择权，交给排队的人。</span></div><div class="qa-step-grid"><article class="qa-step-card"><span class="qa-step-icon qa-ticket-icon" aria-hidden="true">FREE</span><h3>免费加入队列</h3><p>输入昵称，领取你的排队位置。<br/>无需押金，首次获得 100 排队币。</p><span class="qa-step-note">从这里开始</span></article><article class="qa-step-card"><span class="qa-step-icon qa-price-icon" aria-hidden="true">0.5</span><h3>给让位报个价</h3><p>决定每被越过一位的补偿价格，<br/>也可以选择“我不让位”。</p><span class="qa-step-note">改价 2 个区块后生效</span></article><article class="qa-step-card"><span class="qa-step-icon qa-settle-icon" aria-hidden="true">✓</span><h3>双方消费后结算</h3><p>插队者和你都完成消费，补偿到账。<br/>任意一方未消费，对应款项原路退回。</p><span class="qa-step-note">每个人的补偿独立结算</span></article></div></section><section class="qa-rules qa-section-wrap" id="rules" aria-labelledby="rules-title"><div class="qa-section-heading"><div><p class="qa-kicker">FAIR PLAY</p><h2 id="rules-title">规则摊开，排得明白。</h2></div><span class="qa-rule-seal">公开报价<br/>逐人补偿</span></div><div class="qa-faq-list"><details><summary>入队需要付钱吗？<span aria-hidden="true">+</span></summary><p>免费入队，无需押金或占位费。首次入队获得 100 个演示用排队币，普通用户无需安装钱包插件或自行领取测试币。</p></details><details><summary>我的让位价代表什么？<span aria-hidden="true">+</span></summary><p>有人越过你时，需要按你当前生效的报价向你记一笔补偿。默认 0.5 排队币，可在 0.1–10 之间调整，也可以选择不让。改价和不让状态的调整在 2 个区块后生效。</p></details><details><summary>选择“不让”以后会怎样？<span aria-hidden="true">+</span></summary><p>其他人插队时会停在你身后，只补偿实际被越过的人。选择不让免费，位置也不能转让。</p></details><details><summary>插队会不会比确认时多扣钱？<span aria-hidden="true">+</span></summary><p>确认前会显示逐人补偿明细、预计总额和最多愿付金额。实际费用超过你设置的上限，整笔交易失败，不会超额扣款。</p></details><details><summary>什么时候收到补偿？<span aria-hidden="true">+</span></summary><p>每个人的补偿独立冻结。只有插队者和被越过者双方都完成消费，对应款项才归被越过者。任何一方退出、过号或打烊未消费，对应款项就原路退回插队者。</p></details></div></section><section class="qa-bottom-cta" id="about"><div class="qa-section-wrap qa-bottom-inner"><span class="qa-pixel-monitor" aria-hidden="true"><span>^ ^<br/> ▿ </span></span><div><p class="qa-kicker">YOUR TIME. YOUR CALL.</p><h2>让等待被看见，<br/>让时间拥有自己的价格。</h2><p>Queue Arena · Monad 广州站现场排队实验</p></div><a class="qa-button  " href="/m" data-join="true">免费加入队列</a></div><div class="qa-grass" aria-hidden="true"></div></section></main><footer class="qa-footer"><a href="#top">插队红包 <span>QUEUE ARENA</span></a><p>补偿以排队币记账 · 双方完成消费后结算</p><a href="#rules">了解完整规则</a></footer><dialog class="qa-preview-dialog" data-preview-dialog="true" aria-labelledby="preview-title"><div class="qa-dialog-inner"><p class="qa-kicker">LOCAL PREVIEW</p><h2 id="preview-title">你正在查看独立首页预览</h2><p>此文件提供页面和机制演示。真实入队需要打开 React 应用并连接排队服务。</p><p class="qa-preview-address">开发版入口 <a href="http://localhost:5173/m">http://localhost:5173/m</a></p><button class="qa-button" type="button" data-close-preview="true">继续浏览首页</button></div></dialog></div><script>(function initHomepage(root, { preview }) {
+  const scene = root.querySelector("[data-scene]");
+  const status = root.querySelector("[data-demo-status]");
+  const dialog = root.querySelector("[data-preview-dialog]");
+  let lastFocus = null;
+  function setDemo(mode) {
+    scene.dataset.mode = mode;
+    const messages = {
+      idle: "\u793A\u4F8B\uFF1A\u8D8A\u8FC7 3 \u4EBA\uFF0C\u5404\u4ED8 0.5\uFF0C\u5408\u8BA1 1.5 \u6392\u961F\u5E01\u3002",
+      cut: "\u6A21\u62DF\u63D2\u961F\u5B8C\u6210\uFF1A3 \u7B14\u8865\u507F\u5404 0.5 \u6392\u961F\u5E01\uFF0C\u5408\u8BA1 1.5 \u5DF2\u51BB\u7ED3\uFF0C\u7B49\u5F85\u53CC\u65B9\u6D88\u8D39\u3002",
+      settled: "\u6A21\u62DF\u53CC\u65B9\u6D88\u8D39\uFF1A3 \u7B14\u8865\u507F\u5404 0.5 \u6392\u961F\u5E01\uFF0C\u5206\u522B\u7ED3\u7B97\u7ED9\u88AB\u8D8A\u8FC7\u7684\u4EBA\u3002",
+      refunded: "\u6A21\u62DF\u63D2\u961F\u8005\u672A\u6D88\u8D39\uFF1A3 \u7B14\u51BB\u7ED3\u6B3E\u9879\u5171 1.5 \u6392\u961F\u5E01\uFF0C\u539F\u8DEF\u9000\u56DE\u63D2\u961F\u8005\u3002"
+    };
+    status.textContent = messages[mode];
+    root.querySelector("[data-demo-cut]").hidden = mode !== "idle";
+    root.querySelector("[data-demo-settle]").hidden = mode !== "cut";
+    root.querySelector("[data-demo-refund]").hidden = mode !== "cut";
+    root.querySelector("[data-demo-reset]").hidden = mode === "idle" || mode === "cut";
+    root.querySelectorAll("[data-packet]").forEach((packet) => {
+      packet.textContent = mode === "settled" ? "\u5DF2\u5230\u8D26 +0.5" : mode === "refunded" ? "\u5DF2\u9000\u56DE 0.5" : "\u5F85\u7ED3\u7B97 +0.5";
+    });
+    const next = scene.querySelector("button:not([hidden])");
+    next?.focus({ preventScroll: true });
+  }
+  function click(event) {
+    const target = event.target.closest("a,button");
+    if (!target) return;
+    if (preview && target.hasAttribute("data-join")) {
+      event.preventDefault();
+      lastFocus = target;
+      dialog.showModal();
+    }
+    if (target.hasAttribute("data-close-preview")) dialog.close();
+    if (target.hasAttribute("data-demo-cut")) setDemo("cut");
+    if (target.hasAttribute("data-demo-settle")) setDemo("settled");
+    if (target.hasAttribute("data-demo-refund")) setDemo("refunded");
+    if (target.hasAttribute("data-demo-reset")) setDemo("idle");
+  }
+  function close() {
+    lastFocus?.focus();
+  }
+  root.addEventListener("click", click);
+  dialog.addEventListener("close", close);
+  return () => {
+    root.removeEventListener("click", click);
+    dialog.removeEventListener("close", close);
+  };
+})(document, { preview: true });</script></body></html>
