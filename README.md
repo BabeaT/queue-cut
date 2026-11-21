@@ -1,4 +1,4 @@
-# queue-cut
+# 插队红包（queue-cut）
 
 > Monad Blitz 广州站 2026 参赛项目
 

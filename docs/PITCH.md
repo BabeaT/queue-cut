@@ -100,7 +100,7 @@
 
 | 字段 | 内容 |
 |---|---|
-| 项目名 | 待定（代号 queue-cut；口号「插队红包」） |
+| 项目名 | 插队红包（代号 queue-cut） |
 | 简介 | 用第一节的三十秒版本 |
 | 演示链接 | 部署后的公网地址（`/m` 手机端，`/screen` 大屏） |
 | GitHub | https://github.com/BabeaT/queue-cut |
