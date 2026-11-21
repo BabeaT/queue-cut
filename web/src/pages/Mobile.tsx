@@ -2,12 +2,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLive, useLiveEvents, useBlock, fmt, EXPLORER, sendWs, ackCut, type QueueRow } from "../live.ts";
 import { actions, address, getNick, setNick, onboard } from "../wallet.ts";
+import { Character } from "../home/HomePage.tsx";
 import "./mobile.css";
 
 const me = address.toLowerCase();
 const AVATARS = ["🐼", "🦊", "🐯", "🐸", "🐙", "🦄", "🐳", "🐧", "🦁", "🐨", "🐹", "🐰", "🐻", "🐮", "🐷", "🐵", "🦉", "🐲", "🍋", "🍑", "🧋", "🥟", "🌶️", "🍜"];
 const BOT_AVATAR = "🕶️";
 const RANDOM_NAMES = ["靓仔", "靓女", "老细", "阿明", "阿珍", "肥仔", "叉烧", "虾饺", "肠粉", "奶茶", "菠萝包", "煲仔饭"];
+
+/** 像素小人头像：自己是举红包奔跑的那个，其他人按 uid 轮换 4 个角色 */
+export function Ava(props: { uid: number; me?: boolean; scalper?: boolean }) {
+  return (
+    <span className={`m-ava ${props.scalper ? "scalper" : ""}`}>
+      <Character kind={props.me ? 0 : 1 + (props.uid % 4)} />
+      {props.scalper && <i>🕶️</i>}
+    </span>
+  );
+}
 
 export function avatarOf(nick: string, uid: number, scalper = false) {
   if (scalper) return BOT_AVATAR;
@@ -229,7 +240,7 @@ export default function Mobile() {
   return (
     <div className={`m-root ${flash ? "flash-" + flash : ""}`}>
       <header className="m-head">
-        <div className="m-brand">🧧 插队红包</div>
+        <div className="m-brand"><span className="m-brand-packet">¥</span>插队红包</div>
         <div className="m-block mono">
           <span className={connected ? "dot ok" : "dot"} />
           <span key={block} className="tick">#{block || state?.block || "…"}</span>
@@ -373,10 +384,11 @@ function JoinView(props: {
         <br />
         <em>钱就进你口袋</em>
       </h1>
+      <div className="m-hero">
+        <Character kind={0} />
+        <span className="m-hero-tag">QUEUE ARENA</span>
+      </div>
       <div className="m-avatar-row">
-        <button className="m-avatar" onClick={reroll} aria-label="换头像">
-          {avatar}
-        </button>
         <input type="text" maxLength={6} placeholder="昵称（不填就随机）" value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       <div className="m-q">你的一位，值多少钱？</div>
@@ -389,7 +401,7 @@ function JoinView(props: {
       <button
         className="primary m-cta"
         disabled={!!props.busy}
-        onClick={() => props.onJoin(`${avatar}${name.trim() || RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]}`, price, noYield)}
+        onClick={() => props.onJoin(`${name.trim() || RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)]}`, price, noYield)}
       >
         {props.busy ? `${props.busy}中…` : `🎟️ 领号排队（现在 ${props.queueLen} 人）`}
       </button>
@@ -478,6 +490,7 @@ function QueuedView(props: {
           <span>取号单</span>
           <span className="mono">#{row.uid}</span>
         </div>
+        <div className="m-ticket-me"><Character kind={0} /></div>
         <div className="m-ticket-rank">
           第<b>{row.rank}</b>位
         </div>
@@ -514,14 +527,14 @@ function QueuedView(props: {
                   onClick={() => setCutTarget(q.uid)}
                 >
                   <div className="m-person-rank">{q.rank}</div>
-                  <div className="m-person-av">{avatarOf(q.nick, q.uid, props.reveal && q.isBot)}</div>
+                  <div className="m-person-av"><Ava uid={q.uid} scalper={props.reveal && q.isBot} /></div>
                   <div className="m-person-tag">{q.noYield ? "🧱" : fmt(q.price, 1)}</div>
                 </button>
               );
             })}
             <div className="m-person me">
               <div className="m-person-rank">{row.rank}</div>
-              <div className="m-person-av">{avatarOf(row.nick, row.uid)}</div>
+              <div className="m-person-av"><Ava uid={row.uid} me /></div>
               <div className="m-person-tag">我</div>
             </div>
           </div>
@@ -618,7 +631,7 @@ function CutSheet(props: {
             <div className="m-sheet-list">
               {wall && (
                 <div className="m-sheet-item wallitem">
-                  <span>{avatarOf(wall.nick, wall.uid, props.reveal && wall.isBot)}</span>
+                  <Ava uid={wall.uid} scalper={props.reveal && wall.isBot} />
                   <span className="grow">{nameOf(wall.nick)} · 第 {wall.rank} 位</span>
                   <span>🧱 不让</span>
                 </div>
@@ -628,7 +641,7 @@ function CutSheet(props: {
                 const on = i <= sel;
                 return (
                   <button key={x.q.uid} className={`m-sheet-item ${on ? "on" : ""} ${i === sel ? "target" : ""}`} onClick={() => setSel(i)}>
-                    <span>{avatarOf(x.q.nick, x.q.uid, props.reveal && x.q.isBot)}</span>
+                    <Ava uid={x.q.uid} scalper={props.reveal && x.q.isBot} />
                     <span className="grow">
                       {nameOf(x.q.nick)}
                       {x.q.isBot && <em className="botmark">{props.reveal ? "黄牛" : "🤖"}</em>} · 第 {x.q.rank} 位
@@ -638,7 +651,7 @@ function CutSheet(props: {
                 );
               })}
               <div className="m-sheet-item me">
-                <span>{avatarOf(props.row.nick, props.row.uid)}</span>
+                <Ava uid={props.row.uid} me />
                 <span className="grow">我 · 第 {props.row.rank} 位</span>
               </div>
             </div>

@@ -12,7 +12,11 @@ import {
   type CutEvent,
   type Spotlight,
 } from "../live.ts";
+import { Character } from "../home/HomePage.tsx";
 import "./screen.css";
+
+/** 像素小人：普通人按 uid 在 1–4 里选；正在插队冲刺的人用 0（举红包奔跑） */
+const kindOf = (uid: number, running = false) => (running ? 0 : 1 + (uid % 4));
 
 // ───────────── 头像 ─────────────
 const AVATARS = ["🐼", "🦊", "🐯", "🐨", "🐸", "🐵", "🐰", "🐻", "🐷", "🐮", "🦁", "🐶", "🐱", "🐧", "🦄", "🐲", "🦉", "🐙", "🦀", "🐳"];
@@ -35,7 +39,7 @@ type PriceEv = { uid: number; nick: string; price: number; noYield: boolean; blo
 type Storm = { id: number; items: PriceEv[] };
 type Trace = { id: number; cut: CutEvent; at: number };
 type BlockAgg = { joins: number; cuts: number; prices: number; settles: number; txs: number };
-type Ghost = { id: number; x: number; y: number; w: number; h: number; avatar: string; name: string; isBot: boolean };
+type Ghost = { id: number; x: number; y: number; w: number; h: number; avatar: string; name: string; isBot: boolean; uid: number };
 type Beam = { id: number; x: number; y: number; len: number; angle: number };
 type Banner = { id: number; cut: CutEvent; rank: number };
 
@@ -171,7 +175,7 @@ export default function Screen() {
             const id = nextId();
             setGhosts((g) => [
               ...g,
-              { id, x: r.left, y: r.top, w: r.width, h: r.height, avatar, name, isBot: row.isBot },
+              { id, x: r.left, y: r.top, w: r.width, h: r.height, avatar, name, isBot: row.isBot, uid: row.uid },
             ]);
             later(2200, () => setGhosts((g) => g.filter((x) => x.id !== id)));
           } else if (e.reason === "skipped") {
@@ -262,7 +266,10 @@ export default function Screen() {
     <div className={`sc-root ${shake ? "shake" : ""} ${spotlight ? "spot-on" : ""}`}>
       <header className="sc-head">
         <div className="sc-title">
-          <div className="sc-logo">🧧 插队红包</div>
+          <div className="sc-logo">
+            <span className="sc-logo-zh">插队红包</span>
+            <span className="sc-logo-en">QUEUE ARENA</span>
+          </div>
           <div className="sc-slogan">
             在以太坊上插队，钱给了矿工；<b>在这里插队，钱给被你插队的每一个人</b>
           </div>
@@ -286,13 +293,16 @@ export default function Screen() {
           ) : (
             <div className="sc-line">
               <div className="sc-counter" ref={counterEl}>
-                <div className="sc-counter-title">🏪 柜台</div>
+                <div className="sc-awning" aria-hidden="true" />
+                <div className="sc-counter-title">
+                  <span className="sc-shop-en">SHOP</span> 柜台
+                </div>
                 <div className="sc-counter-list">
                   {(state.called ?? []).slice(-3).map((c) => {
-                    const { avatar, name } = splitNick(c.nick, c.uid);
+                    const { name } = splitNick(c.nick, c.uid);
                     return (
                       <div key={c.uid} className="sc-called">
-                        <span className="sc-called-av">{avatar}</span>
+                        <span className="sc-called-av"><Character kind={kindOf(c.uid)} /></span>
                         <span className="sc-called-name">{name}</span>
                       </div>
                     );
@@ -311,6 +321,7 @@ export default function Screen() {
                   row={row}
                   fx={fxByUid.get(row.uid)}
                   spot={spotlight?.uid === row.uid}
+                  running={banner?.cut.cutter.uid === row.uid}
                   reveal={reveal}
                   refCb={(el) => {
                     if (el) cardEls.current.set(row.uid, el);
@@ -358,7 +369,7 @@ export default function Screen() {
         ))}
         {ghosts.map((g) => (
           <div key={g.id} className={`sc-ghost ${g.isBot && reveal ? "bot" : ""}`} style={{ left: g.x, top: g.y, width: g.w, height: g.h }}>
-            <div className="sc-ghost-av">{g.avatar}</div>
+            <div className="sc-ghost-av"><Character kind={kindOf(g.uid)} /></div>
             <div className="sc-ghost-name">{g.name}</div>
             <div className="sc-ghost-tag">过号</div>
           </div>
@@ -381,13 +392,13 @@ function Card(props: {
   row: QueueRow;
   fx?: Fx[];
   spot: boolean;
+  running?: boolean;
   reveal: boolean;
   refCb: (el: HTMLDivElement | null) => void;
 }) {
   const { row } = props;
   const base = splitNick(row.nick, row.uid);
   const scalper = row.isBot && props.reveal; // 只有导演台打开「黄牛场景」才标出来
-  const avatar = scalper ? "🕶️" : base.avatar;
   const name = base.name;
   const pending = row.pendingFrom > 0;
   const paid = props.fx?.some((f) => f.kind === "paid");
@@ -410,8 +421,9 @@ function Card(props: {
             </>
           )}
         </div>
-        <div className="sc-av" key={scalper ? "s" : "n"}>
-          {avatar}
+        <div className={`sc-av ${props.running ? "running" : ""}`} key={scalper ? "s" : "n"}>
+          <Character kind={kindOf(row.uid, props.running)} />
+          {scalper && <span className="sc-shades">🕶️</span>}
         </div>
         <div className="sc-name">{name}</div>
         {scalper ? (
@@ -455,11 +467,11 @@ function EmptyStage(props: { connected: boolean; hasState: boolean }) {
 // ───────────── 插队横幅 ─────────────
 function CutBanner({ banner }: { banner: Banner }) {
   const c = banner.cut;
-  const { avatar, name } = splitNick(c.cutter.nick, c.cutter.uid);
+  const { name } = splitNick(c.cutter.nick, c.cutter.uid);
   return (
     <div className="sc-banner">
       <div className="sc-banner-main">
-        {avatar} <b>{name}</b> 插队到第 <b className="hot">{banner.rank}</b> 位
+        <span className="sc-banner-runner"><Character kind={0} /></span> <b>{name}</b> 插队到第 <b className="hot">{banner.rank}</b> 位
       </div>
       <div className="sc-banner-sub">
         同一个块 <b className="mono">#{c.block}</b> · <b className="hot">{c.victims.length}</b> 人同时到账 · 共{" "}
@@ -491,11 +503,11 @@ function SpotlightPanel({ spotlight }: { spotlight: NonNullable<Spotlight> }) {
   }, []);
   const left = Math.max(0, Math.ceil((spotlight.until - now) / 1000));
   const total = Math.max(1, (spotlight.yield ?? 0) + (spotlight.hold ?? 0));
-  const { avatar, name } = splitNick(spotlight.nick, spotlight.uid);
+  const { name } = splitNick(spotlight.nick, spotlight.uid);
   return (
     <div className="sc-spot">
       <div className="sc-spot-box">
-        <div className="sc-spot-av">{avatar}</div>
+        <div className="sc-spot-av"><Character kind={kindOf(spotlight.uid)} /></div>
         <div className="sc-spot-q">
           <b>{name}</b>：让，还是不让？
         </div>
@@ -857,11 +869,11 @@ function StormPanel({ storm }: { storm: Storm }) {
       </div>
       <div className="sc-lanes">
         {storm.items.map((x, i) => {
-          const { avatar, name } = splitNick(x.nick, x.uid);
+          const { name } = splitNick(x.nick, x.uid);
           return (
             <div key={`${x.uid}-${i}`} className="sc-lane">
               <span className="sc-lane-who">
-                {avatar} {name}
+                {name}
               </span>
               <span className="sc-lane-bar">
                 <span className="sc-lane-fill" />

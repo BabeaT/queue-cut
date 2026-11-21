@@ -20,3 +20,20 @@
 .st-mon .low { color: var(--red); }
 .st-log { max-height: 220px; overflow-y: auto; font-size: 12px; display: flex; flex-direction: column; gap: 2px; color: var(--dim); }
 .gold { color: var(--gold); }
+
+/* Queue Arena 像素风换皮 */
+body[data-page="stage"] { background: #fff7e8; color-scheme: light; }
+.st-root { --bg: #fff7e8; --panel: #fffcf5; --panel2: #f1ead9; --line: #171717; --fg: #171717; --dim: #5c5648; --accent: #f23891; --red: #f23891; --gold: #b07a00; --green: #399c3f; color: #171717; font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.st-head { border-bottom: 3px solid #171717; font-weight: 700; }
+.st-card { border: 3px solid #171717; box-shadow: 4px 4px 0 #171717; border-radius: 6px; }
+.st-root button { color: #171717; border: 2.5px solid #171717; border-radius: 4px; background: #fff; box-shadow: 3px 3px 0 #171717; font-weight: 800; }
+.st-root button:active { transform: translate(3px, 3px); box-shadow: none; }
+.st-root button.primary { background: #171717; color: #fff; box-shadow: 3px 3px 0 #f23891; }
+.st-root button.danger { background: #f23891; color: #fff; }
+.st-root input { background: #fff; color: #171717; border: 2.5px solid #171717; border-radius: 4px; font-weight: 700; }
+.st-q { border: 2px solid #cfc8b6; border-radius: 4px; }
+.st-q.bot { border-color: #6b8fa8; }
+.st-q button { box-shadow: none; }
+.st-spot { background: #ffd84d; border: 2.5px solid #171717; border-radius: 4px; font-weight: 800; }
+.st-log { color: #5c5648; }
+.st-root a { color: #d92778; }
