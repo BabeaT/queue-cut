@@ -1,0 +1,9 @@
+{
+  "name": "chadui-hongbao",
+  "private": true,
+  "engines": { "node": "22.x" },
+  "scripts": {
+    "build": "cd server && npm ci --include=dev && cd ../web && npm ci --include=dev && npm run build",
+    "start": "cd server && npm start"
+  }
+}

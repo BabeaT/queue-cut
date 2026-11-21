@@ -1,0 +1,8 @@
+.secrets/
+.mojo/
+node_modules/
+**/node_modules/
+web/dist/
+contracts/out/
+contracts/cache/
+.git
