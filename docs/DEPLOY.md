@@ -49,7 +49,7 @@ PORT=8787 STAGE_KEY=<导演台口令> npx tsx src/index.ts
 | 第三幕 | 先「叫号 + 核销队首」（插队的队友去柜台拿奶茶），黄牛到了队首后按「第三幕：黄牛一次过号」 |
 | 彩排后重置 | 导演台「重置」：过号柜台、收摊（全部退款）、开新一场 |
 | 查余额 | 导演台「查各账户 MON 余额」；中继余额低于 0.3 就要补 |
-| 补 gas | `cd server && AMOUNT=0.3 npx tsx src/topup.ts`（运营 → 3 个中继）；黄牛：`npx tsx src/fund.ts` |
+| 补 gas | `cd server && AMOUNT=0.3 npx tsx src/topup.ts`（运营 → 3 个中继）；黄牛：`TARGET=0.5 npx tsx src/fundbots.ts`（运营 → 20 个黄牛，补到 0.5） |
 | 冒烟测试 | `cd server && N=3 npx tsx src/e2e.ts`（模拟 3 个手机入队并插队） |
 
 ## 六、gas 预算（实测，base fee 约 102 gwei）
