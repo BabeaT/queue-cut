@@ -35,10 +35,55 @@ function unlockAudio() {
   } catch {
     /* ignore */
   }
+  unlockVoice();
+}
+// 语音播报（像「支付宝到账」）：用系统自带的朗读；不支持的环境只有金币声
+let voiceOk = false;
+function unlockVoice() {
+  try {
+    if (voiceOk || !("speechSynthesis" in window)) return;
+    const u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0;
+    speechSynthesis.speak(u);
+    voiceOk = true;
+  } catch {
+    /* ignore */
+  }
+}
+function say(text: string) {
+  try {
+    if (!("speechSynthesis" in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "zh-CN";
+    u.rate = 1.05;
+    u.pitch = 1.1;
+    u.volume = 1;
+    speechSynthesis.speak(u);
+  } catch {
+    /* ignore */
+  }
+}
+/** 金币哗啦啦：一串快速的高音「叮」 */
+function coins(n = 9) {
+  if (!audio) return;
+  for (let i = 0; i < n; i++) {
+    const o = audio.createOscillator();
+    const g = audio.createGain();
+    o.type = "square";
+    o.frequency.value = 1800 + Math.random() * 1600;
+    const t = audio.currentTime + i * 0.055 + Math.random() * 0.02;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.18, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    o.connect(g).connect(audio.destination);
+    o.start(t);
+    o.stop(t + 0.1);
+  }
 }
 function ding(kind: "money" | "call" | "refund" | "cut") {
   try {
-    navigator.vibrate?.(kind === "call" ? [300, 120, 300, 120, 300] : kind === "money" ? [80, 50, 80, 50, 200] : [120]);
+    navigator.vibrate?.(kind === "call" ? [300, 120, 300, 120, 300] : kind === "money" ? [60, 40, 60, 40, 60, 40, 400] : [120]);
   } catch {
     /* ignore */
   }
@@ -61,7 +106,7 @@ function ding(kind: "money" | "call" | "refund" | "cut") {
 }
 
 type Toast = { id: number; text: string; kind: "money" | "refund" | "info" | "error" | "receipt"; href?: string };
-type Packet = { id: number; from: string; fromAvatar: string; amount: number; opened: boolean };
+type Packet = { id: number; from: string; fromAvatar: string; amount: number; opened: boolean; block: number; txHash: string; chainMs: number | null };
 
 export default function Mobile() {
   const { state, connected } = useLive();
@@ -105,11 +150,22 @@ export default function Mobile() {
       if (v) {
         ackCut(e.cutId);
         ding("money");
+        coins(12);
+        say(`链上到账，${fmt(v.amount)}排队币`);
         setFlash("money");
         setTimeout(() => setFlash(null), 900);
         setPackets((p) => [
           ...p,
-          { id: e.cutId, from: nameOf(e.cutter.nick), fromAvatar: avatarOf(e.cutter.nick, e.cutter.uid), amount: v.amount, opened: false },
+          {
+            id: e.cutId,
+            from: nameOf(e.cutter.nick),
+            fromAvatar: avatarOf(e.cutter.nick, e.cutter.uid),
+            amount: v.amount,
+            opened: false,
+            block: e.block,
+            txHash: e.txHash,
+            chainMs: e.chainMs,
+          },
         ]);
       }
       if (e.cutter.user?.toLowerCase() === me) {
@@ -121,6 +177,8 @@ export default function Mobile() {
     if (e.type === "settled") {
       if (e.victim.user?.toLowerCase() === me && e.toVictim) {
         ding("money");
+        coins(8);
+        say(`红包解锁，${fmt(e.amount)}排队币到账`);
         toast(`💰 解锁到账 +${fmt(e.amount)}（${nameOf(e.cutter.nick)} 插队的钱）`, "money");
       }
       if (e.victim.user?.toLowerCase() === me && !e.toVictim) toast(`↩ ${fmt(e.amount)} 退回给了 ${nameOf(e.cutter.nick)}（有人没消费）`, "refund");
@@ -609,24 +667,83 @@ function CutSheet(props: {
 // ───────────────── 拆红包 ─────────────────
 function RedPacket(props: { p: Packet; more: number; onOpen: () => void; onClose: () => void }) {
   const { p } = props;
+  const [shown, setShown] = useState(0);
+  // 拆开后金额从 0 滚到实际数字
+  useEffect(() => {
+    if (!p.opened) return setShown(0);
+    coins(14);
+    try {
+      navigator.vibrate?.([40, 30, 40, 30, 300]);
+    } catch {
+      /* ignore */
+    }
+    const t0 = performance.now();
+    let raf = 0;
+    const tick = (t: number) => {
+      const k = Math.min(1, (t - t0) / 700);
+      setShown(p.amount * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [p.opened, p.amount, p.id]);
   return (
     <div className="m-packet-mask" onClick={p.opened ? props.onClose : undefined}>
-      <div className={`m-packet ${p.opened ? "opened" : ""}`}>
+      {p.opened && <CoinRain />}
+      <div className={`m-packet ${p.opened ? "opened" : "closed"}`}>
         <div className="m-packet-from">
+          <div className="m-packet-chain">⛓️ 链上到账</div>
           {p.fromAvatar} {p.from} 插队越过了你
         </div>
         {!p.opened ? (
-          <button className="m-packet-open" onClick={props.onOpen}>
-            開
-          </button>
+          <>
+            <button className="m-packet-open" onClick={props.onOpen}>
+              開
+            </button>
+            <div className="m-packet-block mono">区块 #{p.block} 已确认</div>
+          </>
         ) : (
           <div className="m-packet-amount">
-            <div className="amt">+{fmt(p.amount)}</div>
+            <div className="amt">+{shown.toFixed(p.amount % 1 === 0 ? 0 : 2).replace(/0$/, "")}</div>
+            <div className="unit">排队币</div>
             <div className="lock">🔒 你和 TA 都消费后解锁</div>
+            <a
+              className="m-packet-proof mono"
+              href={`${EXPLORER}/tx/${p.txHash}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              区块 #{p.block}
+              {p.chainMs ? ` · ${p.chainMs}ms 上链` : ""} · 查看链上凭证 ›
+            </a>
             <div className="small">点任意处收下{props.more ? `（还有 ${props.more} 个）` : ""}</div>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function CoinRain() {
+  const bits = useMemo(
+    () =>
+      Array.from({ length: 40 }, (_, i) => ({
+        left: Math.random() * 100,
+        delay: Math.random() * 0.6,
+        dur: 1.1 + Math.random() * 1.1,
+        size: 18 + Math.random() * 20,
+        ch: i % 5 === 0 ? "🧧" : "🪙",
+      })),
+    [],
+  );
+  return (
+    <div className="m-confetti">
+      {bits.map((b, i) => (
+        <span key={i} style={{ left: `${b.left}%`, fontSize: b.size, animationDelay: `${b.delay}s`, animationDuration: `${b.dur}s` }}>
+          {b.ch}
+        </span>
+      ))}
     </div>
   );
 }
