@@ -40,7 +40,8 @@ const BOT_PRICE = parseEther(process.env.BOT_PRICE ?? "1");
 const QC = getAddress(deployment.queueCut) as Address;
 const FWD = getAddress(deployment.forwarder) as Address;
 
-const keys = JSON.parse(fs.readFileSync(path.join(ROOT, ".secrets/keys.json"), "utf8")) as {
+// 私钥：云上部署用环境变量 KEYS_JSON（整个 keys.json 的内容），本地用 .secrets/keys.json
+const keys = JSON.parse(process.env.KEYS_JSON ?? fs.readFileSync(path.join(ROOT, ".secrets/keys.json"), "utf8")) as {
   deployer: { address: string; privateKey: Hex };
   relayers: { address: string; privateKey: Hex }[];
   bots: { address: string; privateKey: Hex }[];
