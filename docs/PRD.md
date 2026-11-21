@@ -191,8 +191,8 @@
 
 | 项 | 结果 |
 |---|---|
-| 合约测试 | 13 个全部通过 |
-| 部署 | QueueCut `0x1728F192c2a6a5CDfA775520934b7a88DeA96cE6`，Forwarder `0x5B73b76D850357E2ffc00cbA44Eb58dC96Dcb8EE` |
+| 合约测试 | 14 个全部通过 |
+| 部署 | QueueCut `0x82c3Dc0e0E06c14E2Bf713A9219E0163894bF090`，Forwarder `0x5B73b76D850357E2ffc00cbA44Eb58dC96Dcb8EE` |
 | 中继一笔插队（越过 7 人） | 0.87 秒到账，84.8 万 gas |
 | 入队 | 约 0.8–1 秒，约 28 万 gas |
 

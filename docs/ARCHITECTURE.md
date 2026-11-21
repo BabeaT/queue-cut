@@ -95,7 +95,7 @@ cut(uint32 toPos, uint96 maxPay)              // 遇「不让」停下；超过 
 leave()
 
 // 店员（owner 或 clerk）
-callNext() / serve(uid) / skip(uid) / close(maxCount)
+callNext() / serve(uid) / skip(uid) / skipHead(n) / close(maxCount)   // skipHead：队首 n 人一次过号（黄牛专场，一笔交易）
 
 // 运营（owner）
 grant(user, amount) / grantBatch(users, amount) / setClerk(addr, on) / newSession()
@@ -127,7 +127,7 @@ myEntry(user) / entryOf(uid) / lineLength() / receiptCount()
 
 `Joined`、`PriceScheduled`、`Cut(cutId, cutter, fromPos, toPos, total, victims[], amounts[])`、`Called`、`Served`、`Gone(uid, reason)`、`Settled(rid, cutter, victim, amount, toVictim)`、`Granted`、`SessionStarted`、`ShopClosed`。
 
-### 3.6 测试（13 个，全部通过）
+### 3.6 测试（14 个，全部通过）
 
 20 人队尾插到队首付给 19 人；「不让」是一堵墙；一上来就被挡住要 revert；maxPay 保护；改价 2 块后生效；双方消费付给被插者；被插者过号退回；插队者过号全退；被插者先消费、插队者后消费的延后结算；退出退钱；收摊全部退回且总额守恒；只有店员能叫号；gas 测量。
 
@@ -135,7 +135,7 @@ myEntry(user) / entryOf(uid) / lineLength() / receiptCount()
 
 | 合约 | 地址 |
 |---|---|
-| QueueCut | `0x1728F192c2a6a5CDfA775520934b7a88DeA96cE6` |
+| QueueCut | `0x82c3Dc0e0E06c14E2Bf713A9219E0163894bF090` |
 | ERC2771Forwarder（name = `QueueCutForwarder`） | `0x5B73b76D850357E2ffc00cbA44Eb58dC96Dcb8EE` |
 | 运营账户（owner / 店员） | `0xf1dBCaC3F29C2864938A05Dda33C4bB3Bf83241C` |
 
@@ -152,7 +152,7 @@ myEntry(user) / entryOf(uid) / lineLength() / receiptCount()
 | `POST /api/onboard {address}` | 首次入队发 100 排队币（每个地址一次） |
 | `POST /api/prepare {from, data}` | 返回 Forwarder nonce、内层 gas（按 `eth_estimateGas` ×1.18 + 25k）、deadline |
 | `POST /api/relay {request}` | 收到签好名的 ForwardRequest，只允许 `join / setPrice / cut / leave`，每个地址同时只能有一笔；外层 gas = 内层 + 70k；用 `eth_sendRawTransactionSync` 发出，回执里的事件立刻推给全场 |
-| `POST /api/stage/{call, serve, skip, act3, close, newSession, botsJoin, botsLeave, balances}` | 店员台和导演台，需要 `x-stage-key` 口令 |
+| `POST /api/stage/{call, callServe, serve, skip, skipHead, act3, spotlight, spotlightOff, close, reset, newSession, botsJoin, botsLeave, balances}` | 店员台和导演台，需要 `x-stage-key` 口令。act3 = 队首连续的黄牛用 skipHead 一次过号；spotlight = 评委守位聚光灯，手机端可喊「让 / 不让」 |
 
 ### 4.2 WebSocket（`/ws`）消息
 
@@ -164,6 +164,8 @@ myEntry(user) / entryOf(uid) / lineLength() / receiptCount()
 | `settled` | 一笔结算：给被插者还是退回插队者 |
 | `called` / `served` / `gone` / `joined` | 叫号、核销、过号/退出/收摊、入队 |
 | `stats` | 统计更新（含全场手机回执的最慢毫秒） |
+| `blockStats` | 某个块里本合约的入队人数和交易笔数（同块统计） |
+| `spotlight` / `cheers` | 评委守位：聚光灯对象和全场喊话票数 |
 
 手机收到 `cut` 会回一条 `ack`，后端据此统计「全场到账」毫秒数。
 
@@ -209,7 +211,9 @@ myEntry(user) / entryOf(uid) / lineLength() / receiptCount()
 |---|---|---|
 | 入队（经中继） | 0.8–1.0 秒 | 约 28 万 |
 | 插队越过 7 人（经中继） | 0.87 秒 | 约 85 万 |
-| 本地测试：插队越过 19 人 | — | 约 179 万（EVM 计价，Monad 上以实测为准） |
+| 插队越过 23 人（经中继，链上） | 0.80 秒 | 约 253 万 |
+| 20 个黄牛同一块入队 12 个 | — | 同块统计实测 |
+| 20 个黄牛一次过号（skipHead） | 一笔交易 | 20 笔原路退回 |
 | 部署两个合约 | — | 约 0.39 MON |
 
 ---

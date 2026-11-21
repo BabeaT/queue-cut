@@ -195,6 +195,18 @@ contract QueueCutTest is Test {
         q.join(P, false, bytes16("again"));
     }
 
+    function test_SkipHeadRefunds() public {
+        _joinAll(P);
+        vm.prank(users[19]);
+        q.cut(5, type(uint96).max); // 越过 5..18
+        uint32 n = q.skipHead(5); // 前 5 人过号（没被越过）
+        assertEq(n, 5);
+        q.serve(q.callNext()); // 插队者消费
+        uint32 m = q.skipHead(3); // 被越过的 3 人过号 → 3 笔退回
+        assertEq(m, 3);
+        assertEq(q.balanceOf(users[19]), GRANT - P * 14 + P * 3);
+    }
+
     function test_OnlyClerk() public {
         _joinAll(P);
         vm.prank(users[0]);

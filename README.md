@@ -21,7 +21,7 @@
 
 | 合约 | 地址 |
 |---|---|
-| QueueCut | [0x1728F192c2a6a5CDfA775520934b7a88DeA96cE6](https://testnet.monadvision.com/address/0x1728F192c2a6a5CDfA775520934b7a88DeA96cE6) |
+| QueueCut | [0x82c3Dc0e0E06c14E2Bf713A9219E0163894bF090](https://testnet.monadvision.com/address/0x82c3Dc0e0E06c14E2Bf713A9219E0163894bF090) |
 | ERC2771Forwarder | [0x5B73b76D850357E2ffc00cbA44Eb58dC96Dcb8EE](https://testnet.monadvision.com/address/0x5B73b76D850357E2ffc00cbA44Eb58dC96Dcb8EE) |
 
 ## 目录

@@ -268,6 +268,23 @@ contract QueueCut is ERC2771Context {
         _finish(uid, Status.Gone, GoneReason.Skipped);
     }
 
+    /// @notice 连叫 n 个号都没来：队首 n 人直接过号（黄牛专场用，一笔交易、同一个块）
+    function skipHead(uint32 n) external onlyClerk returns (uint32 skipped) {
+        uint32 len = uint32(line.length);
+        uint32 h = head;
+        while (h < len && skipped < n) {
+            uint32 uid = line[h];
+            if (uid != 0) {
+                line[h] = 0;
+                emit Called(uid);
+                _finish(uid, Status.Gone, GoneReason.Skipped);
+                skipped++;
+            }
+            h++;
+        }
+        head = h;
+    }
+
     /// @notice 收摊：队里剩下的人都算没消费；分批处理，返回还剩几个
     function close(uint32 maxCount) external onlyClerk returns (uint32 remaining) {
         closed = true;
