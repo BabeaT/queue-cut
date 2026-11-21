@@ -889,6 +889,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const ethBalanceAbi = [{ type: "function", name: "getEthBalance", stateMutability: "view", inputs: [{ name: "addr", type: "address" }], outputs: [{ name: "balance", type: "uint256" }] }] as const;
 /** 一批演示账号错峰发交易（公共 RPC 每秒只给 20 次请求），失败自动重试 */
 async function staggered<T>(items: T[], fn: (x: T) => Promise<Hex>, gapMs = 45): Promise<{ ok: Hex[]; errors: string[] }> {
   const ok: Hex[] = [];
@@ -1065,7 +1066,11 @@ async function stageAction(action: string, body: any) {
     }
     case "balances": {
       const all = [owner, ...relayers, ...bots];
-      const r = await Promise.all(all.map((s) => pub.getBalance({ address: s.account.address })));
+      // 24 个地址并发 getBalance 会撞公共 RPC 每秒 20 次的限额，改成 Multicall3 一次查完
+      const r = (await pub.multicall({
+        contracts: all.map((s) => ({ address: monadTestnet.contracts.multicall3.address, abi: ethBalanceAbi, functionName: "getEthBalance", args: [s.account.address] }) as const),
+        allowFailure: false,
+      })) as bigint[];
       return all.map((s, i) => ({ address: s.account.address, mon: num(r[i]) }));
     }
     default:
